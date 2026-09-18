@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "books": {
+      "title": "Book",
+      "description": "Published and draft literary works, novels, and memoirs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string" },
+        "title": { "type": "string" },
+        "tagline": { "type": "string" },
+        "author": { "type": "string" },
+        "publisher": { "type": "string" },
+        "description": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["ongoing", "completed", "hiatus"] },
+        "visibility": { "type": "string", "enum": ["published", "draft", "private"] },
+        "isFeatured": { "type": "boolean" },
+        "genres": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "totalChapters": { "type": "number" },
+        "publishedChapterCount": { "type": "number" },
+        "latestChapterNumber": { "type": "number" },
+        "latestChapterTitle": { "type": "string" },
+        "firstPublishedAt": { "type": "string", "format": "date-time" },
+        "lastUpdatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "title", "author", "status", "visibility"]
+    },
+    "chapters": {
+      "title": "Chapter",
+      "description": "Serialized chapters belonging to books",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookId": { "type": "string" },
+        "chapterNumber": { "type": "number" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "content": { "type": "string" },
+        "authorsThoughts": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published", "scheduled", "unpublished"] },
+        "scheduledFor": { "type": "string", "format": "date-time" },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "wordCount": { "type": "number" },
+        "readingTimeMinutes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "version": { "type": "number" }
+      },
+      "required": ["id", "bookId", "chapterNumber", "title", "content", "status"]
+    },
+    "bookmarks": {
+      "title": "Bookmark",
+      "description": "User bookmarked books",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "bookId": { "type": "string" },
+        "bookTitle": { "type": "string" },
+        "bookSlug": { "type": "string" },
+        "bookCoverUrl": { "type": "string" },
+        "bookStatus": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "bookId"]
+    },
+    "readingProgress": {
+      "title": "ReadingProgress",
+      "description": "User reading depth and last read chapter",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "bookId": { "type": "string" },
+        "bookSlug": { "type": "string" },
+        "bookTitle": { "type": "string" },
+        "bookCoverUrl": { "type": "string" },
+        "lastChapterId": { "type": "string" },
+        "lastChapterNumber": { "type": "number" },
+        "lastChapterTitle": { "type": "string" },
+        "progressPercent": { "type": "number" },
+        "scrollPosition": { "type": "number" },
+        "lastReadAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "bookId", "lastChapterNumber"]
+    }
+  },
+  "firestore": {
+    "/books/{bookId}": {
+      "schema": "books",
+      "description": "Library books and memoirs collection"
+    },
+    "/chapters/{chapterId}": {
+      "schema": "chapters",
+      "description": "Serialized book chapters and author commentary"
+    },
+    "/bookmarks/{bookmarkId}": {
+      "schema": "bookmarks",
+      "description": "User personal bookmarks"
+    },
+    "/readingProgress/{progressId}": {
+      "schema": "readingProgress",
+      "description": "User reading progression and scroll checkpoints"
+    }
+  }
+}

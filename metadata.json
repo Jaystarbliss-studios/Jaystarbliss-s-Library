@@ -1,0 +1,6 @@
+{
+  "name": "Jaystarbliss's Library",
+  "description": "Digital publishing platform and literary archive for serialized novels and autobiographies by Jaystarbliss Studios, featuring Two Decades.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

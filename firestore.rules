@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all (Pillar 1 Global Safety Net)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection testing doc
+    match /test/{testId} {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin authorization check (Bootstrapped owner email with email verification guard)
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'johnrufai242@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation blueprints
+    function isValidBook(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.slug is string && data.slug.size() <= 128 &&
+             data.title is string && data.title.size() <= 300 &&
+             data.author is string && data.author.size() <= 200 &&
+             data.status in ['ongoing', 'completed', 'hiatus'] &&
+             data.visibility in ['published', 'draft', 'private'];
+    }
+
+    function isValidChapter(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.bookId is string && data.bookId.size() <= 128 &&
+             data.chapterNumber is number &&
+             data.title is string && data.title.size() <= 300 &&
+             data.content is string &&
+             data.status in ['draft', 'published', 'scheduled', 'unpublished'];
+    }
+
+    function isValidBookmark(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.bookId is string && data.bookId.size() <= 128 &&
+             data.bookTitle is string && data.bookTitle.size() <= 300;
+    }
+
+    function isValidReadingProgress(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.bookId is string && data.bookId.size() <= 128 &&
+             data.lastChapterNumber is number;
+    }
+
+    // Books collection (Public catalogue read, admin-only write)
+    match /books/{bookId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidId(bookId) && isValidBook(incoming());
+      allow update: if isAdmin() && isValidId(bookId) && isValidBook(incoming());
+      allow delete: if isAdmin() && isValidId(bookId);
+    }
+
+    // Chapters collection (Public manuscript read, admin-only write)
+    match /chapters/{chapterId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidId(chapterId) && isValidChapter(incoming());
+      allow update: if isAdmin() && isValidId(chapterId) && isValidChapter(incoming());
+      allow delete: if isAdmin() && isValidId(chapterId);
+    }
+
+    // Bookmarks collection (Private to user)
+    match /bookmarks/{bookmarkId} {
+      allow get: if isValidId(bookmarkId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(bookmarkId) && isValidBookmark(incoming());
+      allow update: if isSignedIn() && isValidId(bookmarkId) && existing().userId == request.auth.uid && isValidBookmark(incoming());
+      allow delete: if isValidId(bookmarkId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // Reading Progress collection (Private to user)
+    match /readingProgress/{progressId} {
+      allow get: if isValidId(progressId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(progressId) && isValidReadingProgress(incoming());
+      allow update: if isSignedIn() && isValidId(progressId) && existing().userId == request.auth.uid && isValidReadingProgress(incoming());
+      allow delete: if isValidId(progressId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+  }
+}
