@@ -1,5 +1,5 @@
 /**
- * Jaystarbliss's Library Persistent Data Layer
+ * Library X Persistent Data Layer
  * Provides robust, typed CRUD operations, query filtering, and automatic scheduled publication checks.
  */
 
@@ -23,7 +23,9 @@ import {
   saveReadingProgressToFirestore,
   saveChapterToFirestore,
   saveBookToFirestore,
-  deleteChapterFromFirestore
+  deleteChapterFromFirestore,
+  deleteBookFromFirestore,
+  clearAllFirestoreBooksAndChapters
 } from './firebase';
 
 const STORAGE_KEYS = {
@@ -75,14 +77,23 @@ function safeSetJSON<T>(key: string, value: T): void {
 }
 
 /**
- * Initialize storage with default manuscript data if empty
+ * Initialize storage: Ensure clean state with no hard-coded dummy data.
+ * Pure wireframe until data is loaded from Firestore or created by the author.
  */
 export function initializeStorage(): void {
+  const PURGE_FLAG = 'jsb_clean_wireframe_v3';
+  if (localStorage.getItem(PURGE_FLAG) !== 'true') {
+    // Purge previous dummy/hardcoded books from localStorage
+    localStorage.removeItem(STORAGE_KEYS.BOOKS);
+    localStorage.removeItem(STORAGE_KEYS.CHAPTERS);
+    localStorage.setItem(PURGE_FLAG, 'true');
+  }
+
   if (!localStorage.getItem(STORAGE_KEYS.BOOKS)) {
-    safeSetJSON(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
+    safeSetJSON(STORAGE_KEYS.BOOKS, []);
   }
   if (!localStorage.getItem(STORAGE_KEYS.CHAPTERS)) {
-    safeSetJSON(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
+    safeSetJSON(STORAGE_KEYS.CHAPTERS, []);
   }
   if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {
     safeSetJSON(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
@@ -199,14 +210,19 @@ export function saveBook(book: Book): Book {
 }
 
 export function deleteBook(id: string): void {
-  const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
+  const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, []);
   const filtered = books.filter((b) => b.id !== id);
   safeSetJSON(STORAGE_KEYS.BOOKS, filtered);
 
   // Also remove chapters for this book
-  const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
+  const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, []);
   const filteredChs = chapters.filter((c) => c.bookId !== id);
   safeSetJSON(STORAGE_KEYS.CHAPTERS, filteredChs);
+
+  // Sync delete to Firestore
+  deleteBookFromFirestore(id).catch((err) =>
+    console.warn('Firestore book delete warning:', err)
+  );
 }
 
 // ---------------- CHAPTER METHODS ----------------

@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   ArrowRight,
   Shield,
-  Layers
+  Layers,
+  Feather,
+  Plus
 } from 'lucide-react';
 import { isBookmarked as checkIsBookmarked, toggleBookmark } from '../lib/storage';
 
@@ -39,6 +41,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   isAdmin = false
 }) => {
   const [isBookmarked, setIsBookmarked] = useState(checkIsBookmarked(userId, book.id));
+  const [coverError, setCoverError] = useState(false);
 
   const resumeChapterNumber = progress?.lastChapterNumber || 1;
   const hasStarted = !!progress && progress.lastChapterNumber > 0;
@@ -69,12 +72,26 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
           
           {/* Left: Book Cover */}
           <div className="lg:col-span-4 flex flex-col items-center">
-            <div className="max-w-[280px] sm:max-w-[320px] w-full rounded-sm overflow-hidden border border-zinc-700/80 shadow-2xl">
-              <img
-                src={book.coverUrl}
-                alt={book.title}
-                className="w-full h-auto object-cover"
-              />
+            <div className="max-w-[280px] sm:max-w-[320px] w-full aspect-[2/3] rounded-sm overflow-hidden border border-zinc-700/80 shadow-2xl bg-zinc-950 flex items-center justify-center">
+              {book.coverUrl && !coverError ? (
+                <img
+                  src={book.coverUrl}
+                  alt={book.title}
+                  referrerPolicy="no-referrer"
+                  onError={() => setCoverError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 text-center text-zinc-600 space-y-3">
+                  <Feather className="w-12 h-12 text-zinc-500 stroke-1" />
+                  <span className="font-cinzel text-sm text-zinc-400 font-bold uppercase tracking-wider">
+                    {book.title}
+                  </span>
+                  <span className="font-mono-space text-[10px] text-zinc-600 uppercase">
+                    Original Manuscript
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Quick Action Bar Under Cover */}
@@ -239,14 +256,20 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
             {/* CTA Button */}
             {!hasStarted && (
               <div className="pt-2">
-                <button
-                  onClick={() => onStartReading(1)}
-                  className="flex items-center gap-2 px-6 py-3.5 bg-zinc-100 hover:bg-white text-zinc-950 font-mono-space text-sm font-bold tracking-widest rounded-sm shadow-xl transition-all"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span>BEGIN READING CHAPTER 1</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {publishedChapters.length > 0 ? (
+                  <button
+                    onClick={() => onStartReading(publishedChapters[0].chapterNumber)}
+                    className="flex items-center gap-2 px-6 py-3.5 bg-zinc-100 hover:bg-white text-zinc-950 font-mono-space text-sm font-bold tracking-widest rounded-sm shadow-xl transition-all active:scale-95"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>BEGIN READING CHAPTER {publishedChapters[0].chapterNumber}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <div className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-sm text-xs font-mono-space text-zinc-400">
+                    No chapters published yet for this manuscript. Chapters will appear as soon as the author publishes them.
+                  </div>
+                )}
               </div>
             )}
 
@@ -263,7 +286,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
               MANUSCRIPT CHAPTER INDEX
             </h2>
             <p className="font-mono-space text-xs text-zinc-400">
-              SERIALIZED CHRONICLE • 15 CANONICAL CHAPTERS
+              SERIALIZED CHRONICLE • {chapters.length} CHAPTERS ARCHIVED
             </p>
           </div>
 

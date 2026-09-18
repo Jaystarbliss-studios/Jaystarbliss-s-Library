@@ -20,10 +20,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
               </div>
               <div>
                 <span className="font-cinzel text-lg font-bold tracking-widest text-zinc-100 block">
-                  JAYSTARBLISS'S LIBRARY
+                  LIBRARY X
                 </span>
                 <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
-                  A DIGITAL PUBLISHING PLATFORM BY JAYSTARBLISS STUDIOS
+                  A DIGITAL PUBLISHING PLATFORM & ARCHIVE
                 </span>
               </div>
             </div>

@@ -79,13 +79,18 @@ export const LatestUpdatesView: React.FC<LatestUpdatesViewProps> = ({
                 {/* Book Mini Cover */}
                 <div
                   onClick={() => onSelectBook(book.slug)}
-                  className="w-12 h-16 shrink-0 bg-zinc-950 border border-zinc-800 rounded-sm overflow-hidden cursor-pointer hover:border-zinc-500 transition-colors"
+                  className="w-12 h-16 shrink-0 bg-zinc-950 border border-zinc-800 rounded-sm overflow-hidden cursor-pointer hover:border-zinc-500 transition-colors flex items-center justify-center"
                 >
-                  <img
-                    src={book.coverUrl}
-                    alt={book.title}
-                    className="w-full h-full object-cover"
-                  />
+                  {book.coverUrl ? (
+                    <img
+                      src={book.coverUrl}
+                      alt={book.title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BookOpen className="w-5 h-5 text-zinc-600" />
+                  )}
                 </div>
 
                 {/* Chapter Details */}

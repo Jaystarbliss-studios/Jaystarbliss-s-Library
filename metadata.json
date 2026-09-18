@@ -1,6 +1,6 @@
 {
-  "name": "Jaystarbliss's Library",
-  "description": "Digital publishing platform and literary archive for serialized novels and autobiographies by Jaystarbliss Studios, featuring Two Decades.",
+  "name": "Library X",
+  "description": "Digital publishing platform, catalog, and sovereign literary library for original serialized novels, memoirs, and literature.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

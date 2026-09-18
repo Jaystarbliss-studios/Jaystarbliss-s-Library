@@ -1,5 +1,5 @@
 /**
- * Core Domain Types for Jaystarbliss's Library
+ * Core Domain Types for Library X
  */
 
 export type BookStatus = 'ongoing' | 'completed' | 'hiatus';

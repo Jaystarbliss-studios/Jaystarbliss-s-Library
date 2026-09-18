@@ -21,6 +21,7 @@ import {
 
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { NotificationToast, ToastMessage } from './components/NotificationToast';
 import { AdminSidebar } from './components/AdminSidebar';
 
@@ -377,15 +378,13 @@ export default function App() {
         )}
 
         {/* 2. PUBLIC HOMEPAGE */}
-        {currentRoute === 'home' && featuredBook && (
+        {currentRoute === 'home' && (
           <HomeView
-            featuredBook={featuredBook}
             allBooks={books}
             latestUpdates={latestUpdates}
-            progress={featuredProgress}
-            isBookmarked={isFeaturedBookmarked}
-            onToggleBookmark={() => handleToggleBookmark(featuredBook)}
-            onStartReading={(chNum) => handleOpenReader(featuredBook.slug, chNum)}
+            progressMap={progressMap}
+            bookmarksMap={bookmarksMap}
+            onToggleBookmark={handleToggleBookmark}
             onViewBook={handleOpenBook}
             onSelectChapter={handleOpenReader}
             onNavigate={navigateTo}
@@ -585,6 +584,14 @@ export default function App() {
       {currentRoute !== 'reader' && currentRoute !== 'admin' && (
         <Footer onNavigate={navigateTo} isAdmin={userRole === 'author'} />
       )}
+
+      {/* Sleek Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentRoute={currentRoute}
+        onNavigate={navigateTo}
+        bookmarkCount={bookmarks.length}
+        isAdmin={userRole === 'author'}
+      />
 
       {/* Ephemeral Feedback Toast Queue */}
       <NotificationToast

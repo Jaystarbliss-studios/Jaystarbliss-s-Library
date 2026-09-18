@@ -57,10 +57,10 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <span className="font-cinzel text-lg sm:text-xl font-bold tracking-widest text-zinc-100 block group-hover:text-white transition-colors">
-              JAYSTARBLISS'S LIBRARY
+              LIBRARY X
             </span>
             <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
-              JAYSTARBLISS STUDIOS • PUBLISHING
+              SOVEREIGN LITERARY ARCHIVE & PUBLISHING
             </span>
           </div>
         </div>

@@ -128,25 +128,36 @@ export function isUserAdmin(user: User | null): boolean {
 
 // Data synchronization with Firestore
 export async function seedInitialFirestoreData(): Promise<void> {
-  const booksPath = 'books';
-  // Only the verified admin can seed or write initial library documents
+  // Wireframe policy: No hardcoded or AI-imputed data is seeded.
+  // All books and chapters must be uploaded or authored directly by the admin.
+  return;
+}
+
+export async function clearAllFirestoreBooksAndChapters(): Promise<void> {
   if (!auth.currentUser || !isUserAdmin(auth.currentUser)) {
-    return;
+    throw new Error('Only the verified author/admin can clear library records.');
   }
   try {
-    const snap = await getDocs(collection(db, booksPath));
-    if (snap.empty) {
-      console.log('Seeding initial canonical books & chapters into Cloud Firestore...');
-      for (const book of INITIAL_BOOKS) {
-        await setDoc(doc(db, 'books', book.id), book);
-      }
-      for (const chapter of INITIAL_CHAPTERS) {
-        await setDoc(doc(db, 'chapters', chapter.id), chapter);
-      }
-      console.log('Canonical library seeded into Cloud Firestore successfully.');
+    const booksSnap = await getDocs(collection(db, 'books'));
+    for (const d of booksSnap.docs) {
+      await deleteDoc(d.ref);
     }
+    const chaptersSnap = await getDocs(collection(db, 'chapters'));
+    for (const d of chaptersSnap.docs) {
+      await deleteDoc(d.ref);
+    }
+    console.log('Cleared all books and chapters from Firestore successfully.');
   } catch (error) {
-    console.warn('Unable to auto-seed Firestore, using local canon:', error);
+    handleFirestoreError(error, OperationType.DELETE, 'books/chapters');
+  }
+}
+
+export async function deleteBookFromFirestore(bookId: string): Promise<void> {
+  const path = `books/${bookId}`;
+  try {
+    await deleteDoc(doc(db, 'books', bookId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

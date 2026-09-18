@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Book, ReadingProgress } from '../types';
-import { BookOpen, Bookmark as BookmarkIcon, Clock, ChevronRight } from 'lucide-react';
+import { BookOpen, Bookmark as BookmarkIcon, Clock, ChevronRight, Feather } from 'lucide-react';
 
 interface BookCardProps {
   book: Book;
@@ -17,16 +17,38 @@ export const BookCard: React.FC<BookCardProps> = ({
   onToggleBookmark,
   onSelect
 }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const hasValidImage = book.coverUrl && book.coverUrl.trim() !== '' && !imageError;
+
   return (
     <div className="group relative bg-[#121215] border border-zinc-800/90 rounded-sm hover:border-zinc-600 transition-all duration-300 flex flex-col overflow-hidden shadow-md">
       
       {/* Top Banner / Cover Area */}
-      <div className="relative aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden bg-zinc-950 cursor-pointer" onClick={onSelect}>
-        <img
-          src={book.coverUrl}
-          alt={book.title}
-          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-        />
+      <div 
+        className="relative aspect-[16/10] sm:aspect-[16/9] w-full overflow-hidden bg-zinc-950 cursor-pointer flex items-center justify-center"
+        onClick={onSelect}
+      >
+        {hasValidImage ? (
+          <img
+            src={book.coverUrl}
+            alt={book.title}
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            onError={() => setImageError(true)}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+          />
+        ) : (
+          <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800">
+            <Feather className="w-8 h-8 text-zinc-600 mb-2 group-hover:text-zinc-400 transition-colors" />
+            <span className="font-cinzel text-sm font-bold tracking-wider text-zinc-200 uppercase line-clamp-2">
+              {book.title}
+            </span>
+            <span className="font-mono-space text-[10px] text-zinc-500 mt-1 uppercase">
+              {book.author || 'Jaystarbliss Studios'}
+            </span>
+          </div>
+        )}
         
         {/* Status Badge */}
         <div className="absolute top-3 left-3 flex items-center gap-2">
@@ -37,11 +59,11 @@ export const BookCard: React.FC<BookCardProps> = ({
               ? 'bg-sky-950/80 text-sky-300 border border-sky-800/80'
               : 'bg-amber-950/80 text-amber-300 border border-amber-800/80'
           }`}>
-            {book.status}
+            {book.status === 'ongoing' ? 'Serializing' : book.status}
           </span>
           {book.isFeatured && (
-            <span className="px-2 py-0.5 text-[9px] font-mono-space tracking-wider uppercase bg-zinc-900/90 text-zinc-300 border border-zinc-700 rounded-sm">
-              FEATURED
+            <span className="px-2 py-0.5 text-[9px] font-mono-space tracking-wider uppercase bg-zinc-900/90 text-amber-300 border border-amber-800/50 rounded-sm">
+              Featured
             </span>
           )}
         </div>
@@ -82,7 +104,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             <span>{book.publishedChapterCount} CHAPTERS</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>UPDATED {new Date(book.lastUpdatedAt).toLocaleDateString()}</span>
+              <span>{new Date(book.lastUpdatedAt).toLocaleDateString()}</span>
             </span>
           </div>
 
@@ -93,35 +115,39 @@ export const BookCard: React.FC<BookCardProps> = ({
             {book.title}
           </h3>
 
-          <p className="font-mono-space text-[11px] text-rose-400 font-semibold tracking-wider uppercase line-clamp-1">
-            {book.tagline}
-          </p>
+          {book.tagline && (
+            <p className="font-mono-space text-[11px] text-rose-400 font-semibold tracking-wider uppercase line-clamp-1">
+              {book.tagline}
+            </p>
+          )}
 
           <p className="font-cambria text-sm text-zinc-400 line-clamp-3 leading-relaxed">
-            {book.description}
+            {book.description || 'No synopsis provided yet.'}
           </p>
         </div>
 
         {/* Genres & Explore Action */}
         <div className="pt-3 border-t border-zinc-800/80 space-y-3">
-          <div className="flex flex-wrap gap-1.5">
-            {book.genres.slice(0, 3).map((g) => (
-              <span key={g} className="px-2 py-0.5 bg-zinc-900 text-zinc-400 text-[10px] font-mono-space tracking-wider border border-zinc-800 rounded-sm">
-                {g}
-              </span>
-            ))}
-            {book.genres.length > 3 && (
-              <span className="text-[10px] font-mono-space text-zinc-400 self-center">
-                +{book.genres.length - 3}
-              </span>
-            )}
-          </div>
+          {book.genres && book.genres.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {book.genres.slice(0, 3).map((g) => (
+                <span key={g} className="px-2 py-0.5 bg-zinc-900 text-zinc-400 text-[10px] font-mono-space tracking-wider border border-zinc-800 rounded-sm">
+                  {g}
+                </span>
+              ))}
+              {book.genres.length > 3 && (
+                <span className="text-[10px] font-mono-space text-zinc-400 self-center">
+                  +{book.genres.length - 3}
+                </span>
+              )}
+            </div>
+          )}
 
           <button
             onClick={onSelect}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-mono-space tracking-widest border border-zinc-700/80 rounded-sm transition-colors"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-mono-space tracking-widest border border-zinc-700/80 rounded-sm transition-colors active:scale-98"
           >
-            <span>{progress ? `CONTINUE CH. ${progress.lastChapterNumber}` : 'OPEN BOOK ARCHIVE'}</span>
+            <span>{progress ? `CONTINUE CH. ${progress.lastChapterNumber}` : 'OPEN BOOK'}</span>
             <ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>

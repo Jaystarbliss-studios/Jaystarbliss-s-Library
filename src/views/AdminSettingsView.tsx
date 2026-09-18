@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Settings, Save, RotateCcw, Shield, CheckCircle2, Globe, Feather } from 'lucide-react';
-import { INITIAL_BOOKS, INITIAL_CHAPTERS } from '../data/initialData';
+import { Settings, Save, RotateCcw, Shield, CheckCircle2, Globe, Feather, Image, Key, ExternalLink, Trash2 } from 'lucide-react';
 import { saveBooks, saveChapters } from '../lib/storage';
+import { clearAllFirestoreBooksAndChapters } from '../lib/firebase';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { getImgbbApiKey, saveImgbbApiKey } from '../lib/imageUpload';
 
 interface AdminSettingsViewProps {
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -13,50 +14,81 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   onShowToast,
   onDataReset
 }) => {
-  const [siteTitle, setSiteTitle] = useState('Jaystarbliss’s Library');
+  const [siteTitle, setSiteTitle] = useState("Library X");
   const [publisher, setPublisher] = useState('JAYSTARBLISS STUDIOS');
   const [defaultAuthor, setDefaultAuthor] = useState('Jaystarbliss');
   const [timezone, setTimezone] = useState('Africa/Lagos (WAT / UTC+1)');
-  const [contactEmail, setContactEmail] = useState('contact@jaystarbliss.com');
+  const [contactEmail, setContactEmail] = useState('johnrufai242@gmail.com');
   const [manifesto, setManifesto] = useState(
-    'A sovereign digital archive and literary salon where serialized memoirs, autobiographies, and written works are typeset with classical discipline and shared with readers worldwide.'
+    'A sovereign digital archive and literary salon where serialized memoirs, original novels, and written works are typeset with classical discipline and shared directly with readers.'
   );
 
-  const [showResetModal, setShowResetModal] = useState(false);
+  // ImgBB API Key
+  const [imgbbKey, setImgbbKey] = useState(getImgbbApiKey());
+  const [keyInput, setKeyInput] = useState(getImgbbApiKey());
+
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
+    if (keyInput.trim() !== imgbbKey) {
+      saveImgbbApiKey(keyInput.trim());
+      setImgbbKey(keyInput.trim());
+    }
     onShowToast('Studio publishing settings updated successfully', 'success');
   };
 
-  const handleResetToCanon = () => {
-    setShowResetModal(false);
-    saveBooks(INITIAL_BOOKS);
-    saveChapters(INITIAL_CHAPTERS);
-    onDataReset();
-    onShowToast('Library database reset to canonical 15 chapters of Two Decades', 'success');
+  const handleSaveImgbbOnly = () => {
+    saveImgbbApiKey(keyInput.trim());
+    setImgbbKey(keyInput.trim());
+    onShowToast('ImgBB API key saved successfully', 'success');
+  };
+
+  const handleClearAllData = async () => {
+    setIsClearing(true);
+    try {
+      // Clear localStorage
+      saveBooks([]);
+      saveChapters([]);
+      
+      // Clear Cloud Firestore if authenticated
+      try {
+        await clearAllFirestoreBooksAndChapters();
+      } catch (err) {
+        console.warn('Firestore clear warning (local wiped):', err);
+      }
+
+      onDataReset();
+      setShowClearModal(false);
+      onShowToast('All books and chapters have been purged. Library is now in clean wireframe state.', 'success');
+    } catch (err) {
+      onShowToast(err instanceof Error ? err.message : 'Error clearing data', 'error');
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   return (
-    <div className="p-6 sm:p-10 space-y-8 font-calibri text-zinc-100 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-10 space-y-8 font-calibri text-zinc-100 max-w-4xl mx-auto">
       
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-zinc-300" />
-            <h1 className="font-cinzel text-2xl font-bold tracking-wide uppercase">
+            <h1 className="font-cinzel text-xl sm:text-2xl font-bold tracking-wide uppercase text-white">
               STUDIO & PUBLISHING SETTINGS
             </h1>
           </div>
           <p className="font-mono-space text-xs text-zinc-400">
-            JAYSTARBLISS STUDIOS ARCHIVAL & PLATFORM CONFIGURATION
+            JAYSTARBLISS STUDIOS PLATFORM & IMGBB INTEGRATION
           </p>
         </div>
 
         <button
           onClick={handleSaveSettings}
-          className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-sm shadow-md transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-sm shadow-md transition-all active:scale-95"
         >
           <Save className="w-4 h-4" />
           <span>SAVE SETTINGS</span>
@@ -66,7 +98,54 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
       {/* Settings Form */}
       <form onSubmit={handleSaveSettings} className="space-y-6">
         
-        <div className="p-6 bg-[#121216] border border-zinc-800 rounded-sm space-y-5">
+        {/* ImgBB.com Configuration Card */}
+        <div className="p-5 sm:p-6 bg-[#121216] border border-zinc-800 rounded-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Image className="w-4 h-4 text-emerald-400" />
+              <h2 className="font-cinzel text-sm font-bold tracking-wider text-zinc-200 uppercase">
+                IMGBB.COM IMAGE HOSTING INTEGRATION
+              </h2>
+            </div>
+            <a
+              href="https://api.imgbb.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-mono-space text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              <span>Get Free API Key</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-mono-space text-zinc-300 uppercase block">
+              ImgBB API Key (For Book Cover Uploads)
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Paste your 32-character ImgBB API key..."
+                className="flex-1 bg-zinc-950 border border-zinc-700 text-white font-mono-space text-xs p-2.5 rounded-sm focus:outline-none focus:border-zinc-500"
+              />
+              <button
+                type="button"
+                onClick={handleSaveImgbbOnly}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-mono-space text-xs tracking-wider rounded-sm shrink-0"
+              >
+                SAVE KEY
+              </button>
+            </div>
+            <p className="text-[11px] font-mono-space text-zinc-500 leading-relaxed">
+              When configured, the book creator in Author Studio can directly upload high-res covers to imgbb.com, and the resulting links are stored in Firebase.
+            </p>
+          </div>
+        </div>
+
+        {/* General Publishing Identity Card */}
+        <div className="p-5 sm:p-6 bg-[#121216] border border-zinc-800 rounded-sm space-y-5">
           <h2 className="font-cinzel text-sm font-bold tracking-wider text-zinc-200 uppercase pb-2 border-b border-zinc-800">
             GENERAL PUBLISHING IDENTITY
           </h2>
@@ -148,26 +227,27 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Database Management Card */}
-        <div className="p-6 bg-[#161418] border border-rose-900/60 rounded-sm space-y-4">
+        {/* Database Management & Purge Card */}
+        <div className="p-5 sm:p-6 bg-[#161418] border border-rose-900/60 rounded-sm space-y-4">
           <div className="flex items-center gap-2 text-rose-400">
             <Shield className="w-5 h-5" />
             <h3 className="font-cinzel text-sm font-bold tracking-wider uppercase">
-              ARCHIVAL DATABASE CONTROL & RE-SEEDING
+              LIBRARY PURGE & WIREFRAME RESET
             </h3>
           </div>
 
           <p className="font-calibri text-xs text-zinc-300 leading-relaxed">
-            Reset the local library storage to the authentic, complete 15-chapter canonical manuscript of <strong>TWO DECADES</strong> (including chapters 1 to 15, drop caps, Author's Thoughts commentary, and the initial daily scheduled timeline).
+            Wipe all books and chapters from local cache and Cloud Firestore to return the library to a clean wireframe state. Any new books created in the Author Studio will be published with pristine live data.
           </p>
 
           <button
             type="button"
-            onClick={() => setShowResetModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-mono-space tracking-wider rounded-sm transition-colors"
+            onClick={() => setShowClearModal(true)}
+            disabled={isClearing}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-mono-space tracking-wider rounded-sm transition-colors active:scale-95"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>RESET DATABASE TO CANONICAL MANUSCRIPT</span>
+            <Trash2 className="w-4 h-4" />
+            <span>PURGE ALL BOOKS & CHAPTERS (CLEAN SLATE)</span>
           </button>
         </div>
 
@@ -175,13 +255,13 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
 
       {/* Confirmation Modal */}
       <ConfirmationModal
-        isOpen={showResetModal}
-        title="Reset Library to Canonical Manuscript?"
-        message="This will overwrite local edits and reload the original 15 canonical chapters of Two Decades with their full narrative texts and scheduled daily timestamps."
-        confirmLabel="Reset Library"
+        isOpen={showClearModal}
+        title="Purge All Books & Chapters?"
+        message="This will remove all books and chapters from both local storage and Cloud Firestore, restoring the library to an empty wireframe catalog awaiting your own uploaded manuscripts."
+        confirmLabel="Purge Everything"
         isDestructive={true}
-        onConfirm={handleResetToCanon}
-        onCancel={() => setShowResetModal(false)}
+        onConfirm={handleClearAllData}
+        onCancel={() => setShowClearModal(false)}
       />
 
     </div>
