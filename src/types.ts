@@ -56,7 +56,22 @@ export interface Bookmark {
   bookSlug: string;
   bookCoverUrl: string;
   bookStatus: BookStatus;
+  emailNotificationsEnabled?: boolean;
+  userEmail?: string;
   createdAt: string;
+}
+
+export interface ChapterComment {
+  id: string;
+  chapterId: string;
+  bookId: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+  likes?: number;
 }
 
 export interface ReadingProgress {
@@ -108,15 +123,22 @@ export interface LibrarySettings {
 }
 
 export type ReaderFontSize = 'sm' | 'base' | 'lg' | 'xl' | '2xl';
-export type ReaderFontFamily = 'cambria' | 'calibri';
+export type ReaderFontFamily = 'garamond' | 'newsreader' | 'cambria' | 'sans' | 'mono';
 export type ReaderWidth = 'narrow' | 'standard' | 'wide';
-export type ReaderTheme = 'light' | 'sepia' | 'dark';
+export type ReaderTheme = 'dark' | 'obsidian' | 'sepia' | 'light';
+
+export type ReaderPageColor = 'obsidian' | 'midnight' | 'sepia' | 'ivory' | 'paper' | 'forest' | string;
+export type ReaderTextColor = 'auto' | 'cream' | 'white' | 'silver' | 'charcoal' | 'black' | 'amber' | 'sepia-dark' | string;
+
+export type LibraryFont = 'serif' | 'newsreader' | 'sans' | 'mono';
 
 export interface ReaderPreferences {
   fontSize: ReaderFontSize;
   fontFamily: ReaderFontFamily;
   readingWidth: ReaderWidth;
   theme: ReaderTheme;
+  pageColor?: ReaderPageColor;
+  textColor?: ReaderTextColor;
   showAuthorsThoughts: boolean;
   lineHeight: 'normal' | 'relaxed' | 'loose';
 }

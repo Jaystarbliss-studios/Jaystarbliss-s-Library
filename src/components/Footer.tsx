@@ -15,8 +15,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
           {/* Brand & Mission */}
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-sm bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-                <Feather className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 shadow-sm">
+                <Feather className="w-4 h-4 text-amber-400" />
               </div>
               <div>
                 <span className="font-cinzel text-lg font-bold tracking-widest text-zinc-100 block">
@@ -105,15 +105,32 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
                   </li>
                 </>
               ) : (
-                <li>
-                  <button 
-                    onClick={() => onNavigate('admin')} 
-                    className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 transition-colors"
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>Author Login / Access</span>
-                  </button>
-                </li>
+                <>
+                  <li>
+                    <button 
+                      onClick={() => onNavigate('latest')} 
+                      className="hover:text-zinc-200 transition-colors"
+                    >
+                      Serial Release Schedule
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      onClick={() => onNavigate('my-library')} 
+                      className="hover:text-zinc-200 transition-colors"
+                    >
+                      Personal Reading Shelf
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      onClick={() => onNavigate('home')} 
+                      className="hover:text-zinc-200 transition-colors"
+                    >
+                      Curated Literary Archive
+                    </button>
+                  </li>
+                </>
               )}
               <li className="pt-2">
                 <span className="text-xs text-zinc-400 block font-mono-space">

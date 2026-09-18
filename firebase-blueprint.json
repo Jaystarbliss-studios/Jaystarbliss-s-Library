@@ -54,7 +54,7 @@
     },
     "bookmarks": {
       "title": "Bookmark",
-      "description": "User bookmarked books",
+      "description": "User bookmarked books and notifications preferences",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -64,9 +64,29 @@
         "bookSlug": { "type": "string" },
         "bookCoverUrl": { "type": "string" },
         "bookStatus": { "type": "string" },
+        "emailNotificationsEnabled": { "type": "boolean" },
+        "userEmail": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "bookId"]
+    },
+    "comments": {
+      "title": "Comment",
+      "description": "Public comments on book chapters posted by authenticated readers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chapterId": { "type": "string" },
+        "bookId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likes": { "type": "number" }
+      },
+      "required": ["id", "chapterId", "userId", "userName", "content"]
     },
     "readingProgress": {
       "title": "ReadingProgress",
@@ -87,6 +107,21 @@
         "lastReadAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "bookId", "lastChapterNumber"]
+    },
+    "users": {
+      "title": "UserProfile",
+      "description": "User accounts and authentication profiles (reader or author)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["reader", "admin"] },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "role"]
     }
   },
   "firestore": {
@@ -102,9 +137,17 @@
       "schema": "bookmarks",
       "description": "User personal bookmarks"
     },
+    "/comments/{commentId}": {
+      "schema": "comments",
+      "description": "Public comments on book chapters posted by authenticated readers"
+    },
     "/readingProgress/{progressId}": {
       "schema": "readingProgress",
       "description": "User reading progression and scroll checkpoints"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profiles and roles"
     }
   }
 }

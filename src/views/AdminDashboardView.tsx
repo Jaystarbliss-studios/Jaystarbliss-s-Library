@@ -8,7 +8,6 @@ import {
   PlusCircle,
   CheckCircle2,
   Calendar,
-  Sparkles,
   ArrowRight,
   Eye,
   Edit,

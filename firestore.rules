@@ -29,15 +29,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin authorization check (Bootstrapped owner email with email verification guard)
+    // Admin authorization check (Bootstrapped owner emails with email verification guard)
     function isAdmin() {
       return isSignedIn() &&
-        request.auth.token.email == 'johnrufai242@gmail.com' &&
+        (request.auth.token.email.lower() == 'general5242@gmail.com' ||
+         request.auth.token.email.lower() == 'johnrufai242@gmail.com') &&
         request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users collection (Reader accounts synced on sign in)
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isAdmin();
     }
 
     // Validation blueprints
@@ -64,6 +73,14 @@ service cloud.firestore {
              data.userId is string && data.userId == request.auth.uid &&
              data.bookId is string && data.bookId.size() <= 128 &&
              data.bookTitle is string && data.bookTitle.size() <= 300;
+    }
+
+    function isValidComment(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.chapterId is string && data.chapterId.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 150 &&
+             data.content is string && data.content.size() <= 2000;
     }
 
     function isValidReadingProgress(data) {
@@ -96,6 +113,14 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(bookmarkId) && isValidBookmark(incoming());
       allow update: if isSignedIn() && isValidId(bookmarkId) && existing().userId == request.auth.uid && isValidBookmark(incoming());
       allow delete: if isValidId(bookmarkId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // Comments collection (Public read for chapter discussion, authenticated write)
+    match /comments/{commentId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(commentId) && isValidComment(incoming());
+      allow update: if isSignedIn() && isValidId(commentId) && existing().userId == request.auth.uid && isValidComment(incoming());
+      allow delete: if isValidId(commentId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
     // Reading Progress collection (Private to user)

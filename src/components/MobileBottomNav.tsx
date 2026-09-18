@@ -6,13 +6,15 @@ interface MobileBottomNavProps {
   onNavigate: (route: string) => void;
   bookmarkCount: number;
   isAdmin: boolean;
+  isLoggedIn?: boolean;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentRoute,
   onNavigate,
   bookmarkCount,
-  isAdmin
+  isAdmin,
+  isLoggedIn = false
 }) => {
   // Hide in distraction-free reader mode
   if (currentRoute === 'reader') return null;
@@ -36,13 +38,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       icon: Search,
       isActive: currentRoute === 'search'
     },
-    {
+    ...(isLoggedIn ? [{
       id: 'my-library',
       label: 'My Shelf',
       icon: Bookmark,
       badge: bookmarkCount > 0 ? bookmarkCount : null,
       isActive: currentRoute === 'my-library'
-    },
+    }] : []),
     ...(isAdmin ? [{
       id: 'admin',
       label: 'Studio',
@@ -63,16 +65,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-sm transition-all relative ${
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all relative ${
                 item.isActive
-                  ? 'text-white'
+                  ? 'text-white bg-zinc-800/80 font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${item.isActive ? 'scale-110 text-emerald-400' : ''}`} />
+                <Icon className={`w-5 h-5 transition-transform ${item.isActive ? 'scale-105 text-zinc-100' : ''}`} />
                 {item.badge !== null && (
-                  <span className="absolute -top-1 -right-2 px-1.5 py-0.2 bg-amber-500 text-zinc-950 font-mono-space text-[9px] font-bold rounded-full">
+                  <span className="absolute -top-1 -right-2 px-1.5 py-0.2 bg-zinc-700 text-zinc-100 font-mono-space text-[9px] font-bold rounded-full">
                     {item.badge}
                   </span>
                 )}
@@ -82,9 +84,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               }`}>
                 {item.label}
               </span>
-              {item.isActive && (
-                <span className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />
-              )}
             </button>
           );
         })}

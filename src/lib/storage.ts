@@ -498,7 +498,7 @@ export function isBookmarked(userId: string, bookId: string): boolean {
   return bookmarks.some((b) => b.bookId === bookId);
 }
 
-export function toggleBookmark(userId: string, book: Book): boolean {
+export function toggleBookmark(userId: string, book: Book, userEmail?: string): boolean {
   const allBookmarks = safeGetJSON<Bookmark[]>(STORAGE_KEYS.BOOKMARKS, []);
   const existingIndex = allBookmarks.findIndex((b) => b.userId === userId && b.bookId === book.id);
 
@@ -523,6 +523,8 @@ export function toggleBookmark(userId: string, book: Book): boolean {
       bookSlug: book.slug,
       bookCoverUrl: book.coverUrl,
       bookStatus: book.status,
+      emailNotificationsEnabled: true,
+      userEmail: userEmail || auth.currentUser?.email || undefined,
       createdAt: new Date().toISOString()
     };
     allBookmarks.push(newBm);
@@ -536,6 +538,25 @@ export function toggleBookmark(userId: string, book: Book): boolean {
     }
     return true;
   }
+}
+
+export function updateBookmarkNotification(userId: string, bookId: string, enabled: boolean): Bookmark | undefined {
+  const allBookmarks = safeGetJSON<Bookmark[]>(STORAGE_KEYS.BOOKMARKS, []);
+  const index = allBookmarks.findIndex((b) => b.userId === userId && b.bookId === bookId);
+  if (index >= 0) {
+    allBookmarks[index].emailNotificationsEnabled = enabled;
+    if (auth.currentUser?.email) {
+      allBookmarks[index].userEmail = auth.currentUser.email;
+    }
+    safeSetJSON(STORAGE_KEYS.BOOKMARKS, allBookmarks);
+    if (auth.currentUser && auth.currentUser.uid === userId) {
+      saveBookmarkToFirestore(allBookmarks[index]).catch((err) =>
+        console.warn('Could not update bookmark notification in Firestore:', err)
+      );
+    }
+    return allBookmarks[index];
+  }
+  return undefined;
 }
 
 // ---------------- READING PROGRESS ----------------

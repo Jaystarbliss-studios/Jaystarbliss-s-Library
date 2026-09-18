@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Calendar,
   AlertCircle,
-  Sparkles,
   Layers,
   Feather
 } from 'lucide-react';

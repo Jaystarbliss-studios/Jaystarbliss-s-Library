@@ -33,14 +33,18 @@ export const GenresView: React.FC<GenresViewProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10 font-calibri">
       
       {/* Header */}
-      <div className="space-y-2 pb-6 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
+      <div className="relative overflow-hidden bg-[#131319]/90 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 space-y-2 shadow-xl">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none mix-blend-luminosity filter blur-xs"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=2000&q=80')` }}
+        />
+        <div className="relative z-10 flex items-center gap-2.5">
           <Compass className="w-5 h-5 text-zinc-300" />
           <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-wide text-white uppercase">
             GENRES & CLASSIFICATIONS
           </h1>
         </div>
-        <p className="font-mono-space text-xs sm:text-sm text-zinc-400">
+        <p className="relative z-10 font-mono-space text-xs sm:text-sm text-zinc-400">
           DISCOVER MANUSCRIPTS BY LITERARY GENRE, NARRATIVE FORM, AND THEMATIC TAG
         </p>
       </div>

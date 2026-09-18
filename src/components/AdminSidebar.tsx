@@ -7,8 +7,7 @@ import {
   Settings,
   PlusCircle,
   ExternalLink,
-  Feather,
-  Sparkles
+  Feather
 } from 'lucide-react';
 
 interface AdminSidebarProps {

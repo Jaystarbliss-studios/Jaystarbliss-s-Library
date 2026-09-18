@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { BookOpen, Search, Bookmark, Clock, Compass, Shield, Menu, X, Feather, UserCheck, LogIn, LogOut, Cloud, CloudCheck } from 'lucide-react';
+import {
+  Shield,
+  Menu,
+  X,
+  Feather,
+  LogIn,
+  LogOut
+} from 'lucide-react';
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
 
@@ -8,11 +15,10 @@ interface HeaderProps {
   onNavigate: (route: string, params?: Record<string, string>) => void;
   currentUser: UserProfile | null;
   firebaseUser: User | null;
-  onToggleUserRole: () => void;
+  onToggleUserRole?: () => void;
   bookmarkCount: number;
   onLoginWithGoogle: () => void;
   onLogout: () => void;
-  isCloudConnected?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,20 +26,19 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   currentUser,
   firebaseUser,
-  onToggleUserRole,
   bookmarkCount,
   onLoginWithGoogle,
-  onLogout,
-  isCloudConnected = true
+  onLogout
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Pure typography nav links: only show MY SHELF if signed in with Google
   const navLinks = [
-    { label: 'LIBRARY', route: 'library', icon: BookOpen },
-    { label: 'LATEST', route: 'latest', icon: Clock },
-    { label: 'GENRES', route: 'genres', icon: Compass },
-    { label: 'MY LIBRARY', route: 'my-library', icon: Bookmark, badge: bookmarkCount > 0 ? bookmarkCount : null },
-    { label: 'SEARCH', route: 'search', icon: Search }
+    { label: 'LIBRARY', route: 'library' },
+    { label: 'LATEST', route: 'latest' },
+    { label: 'GENRES', route: 'genres' },
+    ...(firebaseUser ? [{ label: 'MY SHELF', route: 'my-library', badge: bookmarkCount > 0 ? bookmarkCount : null }] : []),
+    { label: 'SEARCH', route: 'search' }
   ];
 
   const handleNav = (route: string) => {
@@ -44,46 +49,41 @@ export const Header: React.FC<HeaderProps> = ({
   const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0a0a0c]/95 backdrop-blur-md border-b border-zinc-800/80">
+    <header className="sticky top-0 z-40 w-full bg-[#0d0d12]/95 backdrop-blur-xl border-b border-zinc-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         
-        {/* Brand Logo & Literary Identity */}
+        {/* Brand Logo - pure LIBRARY X */}
         <div 
           onClick={() => handleNav('home')} 
           className="cursor-pointer group flex items-center gap-3 select-none"
         >
-          <div className="w-10 h-10 rounded-sm bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 group-hover:border-zinc-500 transition-colors shadow-sm">
-            <Feather className="w-5 h-5 text-zinc-300 group-hover:text-white transition-colors" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 group-hover:border-zinc-500 transition-all shadow-md group-hover:scale-105">
+            <Feather className="w-5 h-5 text-amber-300 group-hover:text-amber-200 transition-colors" />
           </div>
           <div>
             <span className="font-cinzel text-lg sm:text-xl font-bold tracking-widest text-zinc-100 block group-hover:text-white transition-colors">
               LIBRARY X
             </span>
-            <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
-              SOVEREIGN LITERARY ARCHIVE & PUBLISHING
-            </span>
           </div>
         </div>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+        {/* Desktop Navigation Links - clean typography without icon clutter */}
+        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
-            const Icon = link.icon;
             return (
               <button
                 key={link.route}
                 onClick={() => handleNav(link.route)}
-                className={`flex items-center gap-2 px-3 py-2 text-xs font-mono-space font-medium tracking-widest rounded-sm transition-colors relative ${
+                className={`px-4 py-2 text-xs font-mono-space font-medium tracking-widest rounded-xl transition-all relative ${
                   isActive
-                    ? 'text-zinc-100 bg-zinc-800/80 border border-zinc-700/50'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                    ? 'text-zinc-100 bg-zinc-800/90 border border-zinc-700/70 shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
                 <span>{link.label}</span>
                 {link.badge !== null && (
-                  <span className="ml-1 px-1.5 py-0.2 bg-zinc-700 text-zinc-100 text-[10px] rounded-full">
+                  <span className="ml-1.5 px-2 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] font-bold rounded-full">
                     {link.badge}
                   </span>
                 )}
@@ -92,23 +92,12 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Right Utility: Cloud Status, Auth & Author Studio */}
-        <div className="hidden lg:flex items-center gap-2.5">
-          {/* Cloud Firestore Status Badge */}
-          <div 
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono-space tracking-wider rounded-sm bg-zinc-900/90 border border-zinc-800 text-zinc-400 select-none"
-            title="Cloud Firestore Real-Time Sync Active"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[10px] text-zinc-300">FIRESTORE</span>
-          </div>
-
-          {/* User Account / Google Auth */}
+        {/* Right Utility: Google Auth & Studio */}
+        <div className="hidden lg:flex items-center gap-3">
+          
+          {/* User Account / Auth */}
           {firebaseUser ? (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-zinc-900 border border-zinc-800 text-xs font-mono-space">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-mono-space shadow-sm">
               {firebaseUser.photoURL ? (
                 <img 
                   src={firebaseUser.photoURL} 
@@ -117,20 +106,20 @@ export const Header: React.FC<HeaderProps> = ({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-200">
+                <div className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center text-[10px] font-bold">
                   {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
                 </div>
               )}
-              <span className="text-zinc-300 max-w-[120px] truncate" title={firebaseUser.email || ''}>
+              <span className="text-zinc-200 max-w-[120px] truncate" title={firebaseUser.email || ''}>
                 {firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0]}
               </span>
-              <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded-xs tracking-wider uppercase ${isAdmin ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/60' : 'bg-zinc-800 text-zinc-400'}`}>
+              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full tracking-wider uppercase ${isAdmin ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-zinc-800 text-zinc-300'}`}>
                 {isAdmin ? 'Author' : 'Reader'}
               </span>
               <button
                 onClick={onLogout}
-                title="Sign out of Firebase"
-                className="ml-1 text-zinc-500 hover:text-rose-400 transition-colors"
+                title="Sign out"
+                className="ml-1 text-zinc-500 hover:text-rose-400 transition-colors p-1"
                 aria-label="Sign out"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -139,34 +128,24 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button
               onClick={onLoginWithGoogle}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono-space tracking-wider border rounded-sm transition-colors text-zinc-300 border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white shadow-xs"
-              title="Sign in with Google to sync bookmarks & progress to Cloud Firestore"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-wider border rounded-xl transition-all text-zinc-100 border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white shadow-sm active:scale-95"
             >
-              <LogIn className="w-3.5 h-3.5 text-amber-400" />
+              <LogIn className="w-3.5 h-3.5 text-zinc-300" />
               <span>SIGN IN</span>
             </button>
           )}
 
-          {/* Fast Toggle between Author Studio and Reader Mode for Testing */}
-          <button
-            onClick={onToggleUserRole}
-            title={isAdmin ? "Switch to Reader Mode" : "Switch to Author / Admin Mode"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-mono-space tracking-wider border rounded-sm transition-colors text-zinc-400 border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:text-zinc-200"
-          >
-            <UserCheck className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Mode: <strong className={isAdmin ? "text-emerald-400" : "text-amber-400"}>{isAdmin ? "Author" : "Reader"}</strong></span>
-          </button>
-
+          {/* Author Studio Navigation (Strictly restricted to verified admin) */}
           {isAdmin && (
             <button
               onClick={() => handleNav('admin')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-mono-space tracking-widest border rounded-sm transition-colors ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-mono-space tracking-widest border rounded-xl transition-all active:scale-95 ${
                 currentRoute.startsWith('admin')
-                  ? 'bg-zinc-100 text-zinc-900 border-zinc-100 font-semibold'
+                  ? 'bg-zinc-100 text-zinc-900 border-zinc-100 font-semibold shadow-md'
                   : 'bg-zinc-800/90 text-zinc-200 border-zinc-700 hover:bg-zinc-700 hover:text-white'
               }`}
             >
-              <Shield className="w-3.5 h-3.5" />
+              <Shield className="w-3.5 h-3.5 text-amber-400" />
               <span>AUTHOR STUDIO</span>
             </button>
           )}
@@ -177,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isAdmin && (
             <button
               onClick={() => handleNav('admin')}
-              className="p-2 text-xs font-mono-space bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-sm"
+              className="p-2 text-xs font-mono-space bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl"
               aria-label="Author Studio"
             >
               <Shield className="w-4 h-4" />
@@ -185,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-zinc-300 hover:text-white focus:outline-none"
+            className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800/50 focus:outline-none"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -195,26 +174,22 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#121215] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">
+        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
-            const Icon = link.icon;
             return (
               <button
                 key={link.route}
                 onClick={() => handleNav(link.route)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded text-sm font-mono-space tracking-widest ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-mono-space tracking-wider transition-colors ${
                   isActive
-                    ? 'bg-zinc-800 text-white font-medium border border-zinc-700'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                    ? 'bg-zinc-800 text-white font-bold border border-zinc-700'
+                    : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4" />
-                  <span>{link.label}</span>
-                </div>
+                <span>{link.label}</span>
                 {link.badge !== null && (
-                  <span className="px-2 py-0.5 bg-zinc-700 text-zinc-200 text-xs rounded-full">
+                  <span className="px-2 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] rounded-full">
                     {link.badge}
                   </span>
                 )}
@@ -222,72 +197,41 @@ export const Header: React.FC<HeaderProps> = ({
             );
           })}
 
-          <div className="pt-4 mt-2 border-t border-zinc-800/80 flex flex-col gap-2">
-            {/* Mobile Auth Button */}
+          {/* Mobile Auth Button */}
+          <div className="pt-3 border-t border-zinc-800/80 flex flex-col gap-2">
             {firebaseUser ? (
-              <div className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-2">
                   {firebaseUser.photoURL ? (
                     <img 
                       src={firebaseUser.photoURL} 
-                      alt="" 
-                      className="w-6 h-6 rounded-full" 
+                      alt={firebaseUser.displayName || 'User'} 
+                      className="w-6 h-6 rounded-full object-cover border border-zinc-700"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold">
-                      {(firebaseUser.displayName || 'U')[0]}
+                    <div className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-200 text-xs font-bold flex items-center justify-center">
+                      {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
                     </div>
                   )}
-                  <div className="flex flex-col">
-                    <span className="text-xs text-zinc-200 font-mono-space truncate max-w-[150px]">
-                      {firebaseUser.displayName || firebaseUser.email}
-                    </span>
-                    <span className="text-[10px] text-zinc-500 font-mono-space">
-                      {isAdmin ? 'Author & Publisher' : 'Reader'}
-                    </span>
-                  </div>
+                  <span className="text-xs text-zinc-300 truncate max-w-[160px]">
+                    {firebaseUser.displayName || firebaseUser.email}
+                  </span>
                 </div>
                 <button
-                  onClick={() => {
-                    onLogout();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="px-2 py-1 text-xs font-mono-space text-rose-400 hover:text-rose-300 border border-rose-900/50 rounded"
+                  onClick={onLogout}
+                  className="text-xs font-mono-space text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-500/10"
                 >
-                  Sign Out
+                  SIGN OUT
                 </button>
               </div>
             ) : (
               <button
-                onClick={() => {
-                  onLoginWithGoogle();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded text-xs font-mono-space text-zinc-200 tracking-wider"
+                onClick={onLoginWithGoogle}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-100 text-zinc-950 font-mono-space text-xs font-bold tracking-wider"
               >
-                <LogIn className="w-4 h-4 text-amber-400" />
-                <span>SIGN IN WITH GOOGLE</span>
-              </button>
-            )}
-
-            <button
-              onClick={onToggleUserRole}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded text-xs font-mono-space tracking-wider text-zinc-300 bg-zinc-900 border border-zinc-800"
-            >
-              <span>Current Identity Mode:</span>
-              <span className={`font-bold ${isAdmin ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {isAdmin ? 'Author / Admin' : 'Reader'} (Tap to toggle)
-              </span>
-            </button>
-
-            {isAdmin && (
-              <button
-                onClick={() => handleNav('admin')}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-zinc-100 text-zinc-900 text-xs font-mono-space tracking-widest font-bold rounded-sm shadow-md"
-              >
-                <Shield className="w-4 h-4" />
-                <span>OPEN AUTHOR PUBLISHING STUDIO</span>
+                <LogIn className="w-4 h-4" />
+                <span>SIGN IN</span>
               </button>
             )}
           </div>

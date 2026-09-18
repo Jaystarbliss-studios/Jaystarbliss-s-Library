@@ -9,7 +9,6 @@ import {
   Edit,
   Trash2,
   ArrowRight,
-  Sparkles,
   RefreshCw
 } from 'lucide-react';
 import { ConfirmationModal } from '../components/ConfirmationModal';

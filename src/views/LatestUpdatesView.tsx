@@ -1,6 +1,6 @@
 import React from 'react';
 import { LatestUpdateItem } from '../lib/storage';
-import { Clock, BookOpen, ChevronRight, Calendar, Sparkles } from 'lucide-react';
+import { Clock, BookOpen, ChevronRight, Calendar } from 'lucide-react';
 
 interface LatestUpdatesViewProps {
   updates: LatestUpdateItem[];
@@ -23,24 +23,28 @@ export const LatestUpdatesView: React.FC<LatestUpdatesViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 font-calibri">
       
-      {/* Header */}
-      <div className="space-y-2 pb-6 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden bg-[#131319]/90 border border-zinc-800/80 rounded-3xl p-6 sm:p-8 space-y-2 shadow-xl">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none mix-blend-luminosity filter blur-xs"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=2000&q=80')` }}
+        />
+        <div className="relative z-10 flex items-center gap-2.5">
           <Clock className="w-5 h-5 text-emerald-400" />
           <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-wide text-white uppercase">
             LATEST CHAPTER UPDATES
           </h1>
         </div>
-        <p className="font-mono-space text-xs sm:text-sm text-zinc-400">
+        <p className="relative z-10 font-mono-space text-xs sm:text-sm text-zinc-400">
           SERIALIZED RELEASES STREAM • NOVEL UPDATES INFORMATION ARCHITECTURE
         </p>
       </div>
 
       {/* Release Schedule Commitment Banner */}
-      <div className="p-4 sm:p-5 bg-[#121216] border border-zinc-800 rounded-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+      <div className="p-4 sm:p-5 bg-[#121216] border border-zinc-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-sm bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
-            <Sparkles className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-xl bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
+            <Calendar className="w-4 h-4" />
           </div>
           <div>
             <span className="font-cinzel text-sm font-bold text-zinc-100 block">
@@ -52,7 +56,7 @@ export const LatestUpdatesView: React.FC<LatestUpdatesViewProps> = ({
           </div>
         </div>
 
-        <span className="px-3 py-1 bg-zinc-900 text-zinc-300 text-xs font-mono-space tracking-wider border border-zinc-700 rounded-sm shrink-0">
+        <span className="px-3 py-1 bg-zinc-900 text-zinc-300 text-xs font-mono-space tracking-wider border border-zinc-700 rounded-xl shrink-0">
           {updates.length} TOTAL RELEASES RECORDED
         </span>
       </div>

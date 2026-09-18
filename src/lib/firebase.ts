@@ -22,7 +22,7 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Book, Chapter, Bookmark, ReadingProgress, UserProfile } from '../types';
+import { Book, Chapter, Bookmark, ReadingProgress, UserProfile, ChapterComment } from '../types';
 import { INITIAL_BOOKS, INITIAL_CHAPTERS } from '../data/initialData';
 
 // Initialize Firebase App
@@ -121,9 +121,50 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
+export const ADMIN_EMAILS = [
+  'general5242@gmail.com',
+  'johnrufai242@gmail.com'
+];
+
 export function isUserAdmin(user: User | null): boolean {
   if (!user || !user.email) return false;
-  return user.email.toLowerCase() === 'johnrufai242@gmail.com';
+  return ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+// Automatically syncs and initializes Reader or Author account upon Google Auth
+export async function syncUserProfileToFirestore(user: User): Promise<{ role: 'admin' | 'reader'; displayName: string }> {
+  const admin = isUserAdmin(user);
+  const role: 'admin' | 'reader' = admin ? 'admin' : 'reader';
+  const displayName = user.displayName || user.email?.split('@')[0] || (admin ? 'Author' : 'Reader');
+  
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    const existingSnap = await getDoc(userDocRef);
+    if (!existingSnap.exists()) {
+      // Create new reader or author profile
+      await setDoc(userDocRef, {
+        id: user.uid,
+        email: user.email || '',
+        displayName,
+        role,
+        avatarUrl: user.photoURL || null,
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      });
+      console.log(`Initialized ${role} account in Firestore for:`, user.email);
+    } else {
+      // Update last active
+      await setDoc(userDocRef, {
+        displayName,
+        lastLoginAt: new Date().toISOString(),
+        avatarUrl: user.photoURL || null
+      }, { merge: true });
+    }
+  } catch (error) {
+    console.warn('Could not sync user account to Firestore (continuing session):', error);
+  }
+
+  return { role, displayName };
 }
 
 // Data synchronization with Firestore
@@ -260,3 +301,83 @@ export async function saveReadingProgressToFirestore(progress: ReadingProgress):
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
+
+// ---------------- COMMENTS SYSTEM ----------------
+
+export async function fetchChapterCommentsFromFirestore(chapterId: string): Promise<ChapterComment[]> {
+  const path = 'comments';
+  try {
+    const q = query(collection(db, path), where('chapterId', '==', chapterId));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs
+      .map(doc => doc.data() as ChapterComment)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export function listenToChapterComments(
+  chapterId: string,
+  onUpdate: (comments: ChapterComment[]) => void,
+  onError?: (error: unknown) => void
+): Unsubscribe {
+  const path = 'comments';
+  const q = query(collection(db, path), where('chapterId', '==', chapterId));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const comments = snapshot.docs
+        .map(doc => doc.data() as ChapterComment)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      onUpdate(comments);
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
+}
+
+export async function addCommentToFirestore(comment: ChapterComment): Promise<void> {
+  const path = `comments/${comment.id}`;
+  try {
+    await setDoc(doc(db, 'comments', comment.id), comment);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function deleteCommentFromFirestore(commentId: string): Promise<void> {
+  const path = `comments/${commentId}`;
+  try {
+    await deleteDoc(doc(db, 'comments', commentId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+// ---------------- CHAPTER NOTIFICATION SUBSCRIBERS ----------------
+
+export async function fetchSubscribersForBook(bookId: string): Promise<{ userId: string; userEmail: string }[]> {
+  const path = 'bookmarks';
+  try {
+    const q = query(
+      collection(db, path),
+      where('bookId', '==', bookId),
+      where('emailNotificationsEnabled', '==', true)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .map(doc => {
+        const data = doc.data() as Bookmark;
+        return { userId: data.userId, userEmail: data.userEmail || '' };
+      })
+      .filter(sub => Boolean(sub.userEmail));
+  } catch (error) {
+    console.warn('Could not query subscribers from Firestore:', error);
+    return [];
+  }
+}
+

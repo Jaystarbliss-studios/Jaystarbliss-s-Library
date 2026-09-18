@@ -28,23 +28,29 @@ export const SearchView: React.FC<SearchViewProps> = ({
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 font-calibri">
       
       {/* Header & Search Bar */}
-      <div className="space-y-4 text-center max-w-2xl mx-auto">
-        <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-wide text-white uppercase">
-          SEARCH ARCHIVE
-        </h1>
-        <p className="font-mono-space text-xs sm:text-sm text-zinc-400">
-          QUERY TITLES, CHAPTERS, NARRATIVE THEMES, AND AUTHOR'S COMMENTARY
-        </p>
+      <div className="relative overflow-hidden bg-[#131319]/90 border border-zinc-800/80 rounded-3xl p-6 sm:p-10 space-y-4 text-center max-w-3xl mx-auto shadow-xl">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none mix-blend-luminosity filter blur-xs"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=2000&q=80')` }}
+        />
+        <div className="relative z-10 space-y-2">
+          <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-wide text-white uppercase">
+            SEARCH ARCHIVE
+          </h1>
+          <p className="font-mono-space text-xs sm:text-sm text-zinc-400">
+            QUERY TITLES, CHAPTERS, NARRATIVE THEMES, AND AUTHOR'S COMMENTARY
+          </p>
+        </div>
 
         {/* Big Search Input */}
-        <div className="relative mt-4">
+        <div className="relative z-10 mt-4 max-w-xl mx-auto">
           <Search className="w-5 h-5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Type book title, chapter (e.g. Nigeria, Backstory, Fight), or theme..."
+            placeholder="Type book title, chapter, or theme..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-[#121216] border border-zinc-700 rounded-sm pl-12 pr-10 py-3.5 text-sm font-mono-space text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-400 shadow-xl"
+            className="w-full bg-[#0d0d12] border border-zinc-700/80 rounded-2xl pl-12 pr-10 py-3.5 text-sm font-mono-space text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 shadow-xl transition-all"
             autoFocus
           />
           {query && (
@@ -58,13 +64,13 @@ export const SearchView: React.FC<SearchViewProps> = ({
         </div>
 
         {/* Suggested Search Prompts */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+        <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 pt-2">
           <span className="text-[11px] font-mono-space text-zinc-400">SUGGESTED:</span>
           {popularTags.map((tag) => (
             <button
               key={tag}
               onClick={() => setQuery(tag)}
-              className="px-2.5 py-0.5 bg-zinc-900 text-zinc-300 text-xs font-mono-space rounded-sm border border-zinc-800 hover:border-zinc-600 transition-colors"
+              className="px-2.5 py-0.5 bg-zinc-900 text-zinc-300 text-xs font-mono-space rounded-full border border-zinc-800 hover:border-zinc-600 transition-colors"
             >
               {tag}
             </button>

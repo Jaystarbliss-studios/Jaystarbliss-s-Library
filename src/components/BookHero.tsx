@@ -1,6 +1,6 @@
 import React from 'react';
 import { Book, ReadingProgress } from '../types';
-import { BookOpen, Bookmark as BookmarkIcon, Check, Calendar, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, Bookmark as BookmarkIcon, Check, Calendar, ArrowRight } from 'lucide-react';
 
 interface BookHeroProps {
   book: Book;
@@ -120,8 +120,8 @@ export const BookHero: React.FC<BookHeroProps> = ({
 
             {/* Reading Status Notice if user has progress */}
             {hasStarted && (
-              <div className="flex items-center gap-3 p-3 bg-zinc-900/80 border border-zinc-700/60 rounded-sm text-xs font-mono-space text-zinc-300 max-w-xl">
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="flex items-center gap-3 p-3 bg-zinc-900/80 border border-zinc-700/60 rounded-xl text-xs font-mono-space text-zinc-300 max-w-xl">
+                <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span className="flex-1">
                   You are currently reading: <strong>Chapter {progress.lastChapterNumber} — {progress.lastChapterTitle}</strong> ({progress.progressPercent}% complete)
                 </span>

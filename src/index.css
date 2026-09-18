@@ -26,6 +26,18 @@
   font-family: var(--font-calibri);
 }
 
+.font-garamond {
+  font-family: "EB Garamond", Georgia, serif;
+}
+
+.font-newsreader {
+  font-family: "Newsreader", Georgia, serif;
+}
+
+.font-sans-clean {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
 .font-cinzel {
   font-family: var(--font-cinzel);
 }

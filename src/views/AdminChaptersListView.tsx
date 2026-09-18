@@ -8,8 +8,7 @@ import {
   Trash2,
   Clock,
   CheckCircle2,
-  Calendar,
-  Sparkles
+  Calendar
 } from 'lucide-react';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 
