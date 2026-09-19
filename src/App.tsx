@@ -116,27 +116,38 @@ export default function App() {
     showToast(`Library font updated to ${font.toUpperCase()}`, 'info');
   };
 
-  // Refresh data from storage
+  // Refresh user-specific state only.
+  // Books and chapters are canonical Firestore data and are owned by the realtime
+  // listeners below. Never overwrite them from localStorage after a login or refresh,
+  // otherwise a reader can briefly see the cloud catalogue and then lose it.
   const refreshData = useCallback(() => {
-    // 1. Evaluate scheduled daily releases
-    const newlyPublished = checkAndPublishScheduled();
-    if (newlyPublished) {
-      showToast('Scheduled daily chapters evaluated and published to readers!', 'success');
-    }
-
-    // 2. Fetch fresh snapshots
-    const loadedBooks = getBooks();
-    const loadedChapters = getChapters();
     const loadedBookmarks = getBookmarks(activeUserId);
     const loadedProgress = getReadingProgressList(activeUserId);
-    const loadedUpdates = getLatestUpdates();
 
-    setBooks(loadedBooks);
-    setChapters(loadedChapters);
     setBookmarks(loadedBookmarks);
     setReadingProgressList(loadedProgress);
-    setLatestUpdates(loadedUpdates);
-  }, [showToast, activeUserId]);
+  }, [activeUserId]);
+
+  // Keep the Latest Updates stream derived from the same canonical books/chapters
+  // shown everywhere else in the public app.
+  useEffect(() => {
+    const bookMap = new Map(books.map((book) => [book.id, book]));
+    const updates = chapters
+      .filter((chapter) => chapter.status === 'published' && chapter.publishedAt)
+      .map((chapter) => {
+        const book = bookMap.get(chapter.bookId);
+        return book ? {
+          chapter,
+          book,
+          releaseDate: chapter.publishedAt as string
+        } : null;
+      })
+      .filter((item): item is LatestUpdateItem => Boolean(item))
+      .sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime())
+      .slice(0, 20);
+
+    setLatestUpdates(updates);
+  }, [books, chapters]);
 
   // Sync with Firestore on mount and listen to Auth state changes
   useEffect(() => {
