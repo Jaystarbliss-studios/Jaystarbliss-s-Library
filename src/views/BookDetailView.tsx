@@ -68,7 +68,9 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   };
 
   const publishedChapters = chapters.filter((c) => c.status === 'published');
-  const scheduledChapters = chapters.filter((c) => c.status === 'scheduled');
+  // Readers receive published chapters only, so scheduled count must come from
+  // the live book metadata maintained in Firestore.
+  const scheduledChapterCount = book.scheduledChapterCount || 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 font-calibri">
@@ -192,7 +194,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
               </div>
               <div>
                 <span className="block font-cinzel text-xl font-bold text-amber-400">
-                  {scheduledChapters.length}
+                  {scheduledChapterCount}
                 </span>
                 <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
                   Scheduled
