@@ -53,6 +53,7 @@ import {
   fetchUserBookmarksFromFirestore,
   fetchUserReadingProgressFromFirestore,
   fetchSubscribersForBook,
+  sendChapterNotification,
   syncUserProfileToFirestore,
   checkRedirectResult,
   listenToBooks,
@@ -369,16 +370,31 @@ export default function App() {
       await saveChapter(ch);
       refreshData();
 
-    // Check for subscribers to send Google email alert notification
-    if (isNewPublish) {
-      try {
-        const subscribers = await fetchSubscribersForBook(ch.bookId);
-        if (subscribers.length > 0) {
-          showToast(`Published Ch. ${ch.chapterNumber}! Notified ${subscribers.length} reader subscriber(s) via Google email.`, 'success');
+      // Send transactional email notifications only after the published chapter
+      // has been confirmed in Firestore. The Vercel API verifies the admin's
+      // Firebase ID token and uses Resend server-side, so the Resend API key
+      // never reaches the browser.
+      if (isNewPublish) {
+        try {
+          const result = await sendChapterNotification(ch.id);
+          if (result.sent > 0) {
+            showToast(
+              `Published Ch. ${ch.chapterNumber}! Email notification sent to ${result.sent} reader(s).${result.failed ? ` ${result.failed} could not be sent.` : ''}`,
+              result.failed ? 'info' : 'success'
+            );
+          } else {
+            showToast(
+              'Chapter published. No readers currently have email notifications enabled for this book.',
+              'info'
+            );
+          }
+        } catch (err) {
+          console.error('Chapter email notification failed:', err);
+          showToast(
+            'Chapter was published, but the reader email notifications could not be sent. Check the Resend/Vercel email configuration.',
+            'error'
+          );
         }
-      } catch (err) {
-        console.warn('Subscriber lookup warning:', err);
-      }
       }
     } catch (err) {
       throw err;
@@ -410,12 +426,16 @@ export default function App() {
     const ch = chapters.find((c) => c.id === chId);
     if (ch) {
       try {
-        const subscribers = await fetchSubscribersForBook(ch.bookId);
-        if (subscribers.length > 0) {
-          showToast(`Dispatched new chapter notification to ${subscribers.length} reader(s) with Google email alerts active.`, 'info');
+        const result = await sendChapterNotification(ch.id);
+        if (result.sent > 0) {
+          showToast(
+            `Dispatched new chapter email to ${result.sent} reader(s).${result.failed ? ` ${result.failed} failed.` : ''}`,
+            result.failed ? 'info' : 'success'
+          );
         }
       } catch (err) {
-        console.warn('Subscriber lookup warning:', err);
+        console.error('Scheduled chapter email notification failed:', err);
+        showToast('Chapter was published, but its email notifications could not be sent.', 'error');
       }
     }
   };
