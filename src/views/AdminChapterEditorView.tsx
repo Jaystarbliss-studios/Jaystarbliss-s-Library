@@ -339,7 +339,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono-space tracking-widest font-bold rounded-sm shadow-md transition-all active:scale-95"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>PUBLISH NOW</span>
+            <span>{chapter?.status === 'published' ? 'PUBLISH CHANGES' : 'PUBLISH NOW'}</span>
           </button>
         </div>
       </div>
@@ -494,6 +494,18 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
             </div>
 
           </div>
+
+          {chapter?.status === 'published' && (
+            <div className="flex items-start gap-3 rounded-sm border border-blue-900/60 bg-blue-950/30 px-4 py-3 text-xs text-blue-100">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
+              <div>
+                <p className="font-semibold">You are editing a published chapter.</p>
+                <p className="mt-1 text-blue-200/80">
+                  Your changes are being autosaved privately on this device. Readers continue to see the current published version until you choose <strong>PUBLISH CHANGES</strong>.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Dedicated "Author's Thoughts..." Editorial Commentary Section */}
           <div className="p-5 bg-[#141418] border-l-4 border-zinc-300 border-y border-r border-zinc-800 rounded-sm space-y-2">
