@@ -48,14 +48,6 @@ const DEFAULT_PREFERENCES: ReaderPreferences = {
   lineHeight: 'relaxed'
 };
 
-const DEFAULT_ADMIN_USER: UserProfile = {
-  id: 'user-admin-1',
-  email: 'johnrufai242@gmail.com',
-  displayName: 'Jaystarbliss (Author)',
-  role: 'admin',
-  createdAt: '2026-08-01T00:00:00.000Z'
-};
-
 function safeGetJSON<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -662,7 +654,7 @@ export function saveSettings(settings: LibrarySettings): void {
 }
 
 export function getCurrentUser(): UserProfile | null {
-  return safeGetJSON<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, DEFAULT_ADMIN_USER);
+  return safeGetJSON<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
 }
 
 export function setCurrentUser(user: UserProfile | null): void {
@@ -716,6 +708,6 @@ export function resetLibraryToDefault(): void {
   safeSetJSON(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
   safeSetJSON(STORAGE_KEYS.BOOKMARKS, []);
   safeSetJSON(STORAGE_KEYS.READING_PROGRESS, []);
-  safeSetJSON(STORAGE_KEYS.CURRENT_USER, DEFAULT_ADMIN_USER);
+  safeSetJSON(STORAGE_KEYS.CURRENT_USER, null);
 }
 
