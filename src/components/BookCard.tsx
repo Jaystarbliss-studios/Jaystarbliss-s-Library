@@ -101,7 +101,12 @@ export const BookCard: React.FC<BookCardProps> = ({
         <div className="space-y-2">
           
           <div className="flex items-center justify-between text-xs font-mono-space text-zinc-400">
-            <span>{book.publishedChapterCount} CHAPTERS</span>
+            <span className="flex items-center gap-1.5">
+              <span>{book.publishedChapterCount} PUBLISHED</span>
+              {book.scheduledChapterCount > 0 && (
+                <span className="text-amber-400">• {book.scheduledChapterCount} SCHEDULED</span>
+              )}
+            </span>
             <span className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-zinc-500" />
               <span>{new Date(book.lastUpdatedAt).toLocaleDateString()}</span>
