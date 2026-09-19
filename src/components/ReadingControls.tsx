@@ -188,7 +188,7 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
                 {fontSizes[currentFontSizeIndex].label}
               </div>
               <div className="mt-0.5 text-[10px] text-[#7f8998]">
-                Adjust reading text size
+                Pinch on the page to resize
               </div>
             </div>
 
