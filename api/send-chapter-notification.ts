@@ -60,7 +60,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'chapterId is required.' });
     }
 
-    const db = getFirestore(adminApp);
+    const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-jaystarblissslib-3ce40f20-6e76-4db9-b86c-ea4fc2fc0b57';
+    const db = getFirestore(adminApp, databaseId);
     const chapterSnap = await db.collection('chapters').doc(chapterId).get();
     if (!chapterSnap.exists) {
       return res.status(404).json({ error: 'Chapter not found.' });
@@ -82,26 +83,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const bookSnap = await db.collection('books').doc(chapter.bookId).get();
     const book = bookSnap.exists ? bookSnap.data() as { title?: string; slug?: string } : {};
 
+    // Query by book only so this works without requiring a Firestore
+    // composite index. Older bookmarks may not have userEmail saved, so
+    // recover the email from Firebase Auth when necessary.
     const bookmarkSnap = await db
       .collection('bookmarks')
       .where('bookId', '==', chapter.bookId)
-      .where('emailNotificationsEnabled', '==', true)
       .get();
 
-    const recipients = Array.from(new Set(
-      bookmarkSnap.docs
-        .map((doc) => String(doc.data().userEmail || '').trim().toLowerCase())
-        .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    ));
+    const recipientsSet = new Set<string>();
+
+    for (const bookmarkDoc of bookmarkSnap.docs) {
+      const bookmark = bookmarkDoc.data() as {
+        userId?: string;
+        userEmail?: string;
+        emailNotificationsEnabled?: boolean;
+      };
+
+      // Notifications are enabled by default for a bookmark unless the
+      // reader explicitly turned them off.
+      if (bookmark.emailNotificationsEnabled === false) continue;
+
+      let email = String(bookmark.userEmail || '').trim().toLowerCase();
+
+      if (!email && bookmark.userId) {
+        try {
+          const userRecord = await getAuth(adminApp).getUser(bookmark.userId);
+          email = String(userRecord.email || '').trim().toLowerCase();
+        } catch (lookupError) {
+          console.warn('Could not recover bookmark email:', bookmark.userId, lookupError);
+        }
+      }
+
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        recipientsSet.add(email);
+      }
+    }
+
+    const recipients = Array.from(recipientsSet);
 
     if (recipients.length === 0) {
       return res.status(200).json({ sent: 0, skipped: 0, message: 'No readers are subscribed to this book.' });
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM_EMAIL || 'Library X <onboarding@resend.dev>';
+    const from = process.env.RESEND_FROM_EMAIL;
     if (!resendApiKey) {
       return res.status(500).json({ error: 'RESEND_API_KEY is not configured on Vercel.' });
+    }
+    if (!from) {
+      return res.status(500).json({
+        error: 'RESEND_FROM_EMAIL is not configured on Vercel. Use an address on a Resend-verified domain.'
+      });
     }
 
     const resend = new Resend(resendApiKey);
