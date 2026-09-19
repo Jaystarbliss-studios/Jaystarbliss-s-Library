@@ -22,6 +22,7 @@ export interface Book {
   tags: string[];
   totalChapters: number;
   publishedChapterCount: number;
+  scheduledChapterCount: number;
   latestChapterNumber: number;
   latestChapterTitle: string;
   firstPublishedAt: string;
