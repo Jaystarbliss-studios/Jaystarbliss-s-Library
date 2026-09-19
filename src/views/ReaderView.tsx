@@ -399,7 +399,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           
           {/* Chapter Narrative Body */}
           <article
-            className={`prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
+            className={`reader-content-font prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
             style={{ color: customTextColor, fontFamily: currentFontFamilyStyle }}
           >
             <div
