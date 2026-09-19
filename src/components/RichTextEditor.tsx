@@ -160,7 +160,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const parser = new DOMParser();
     const doc = parser.parseFromString(rawHtml, 'text/html');
 
-    doc.querySelectorAll('script, style, meta, link, xml, o\\:p, v\\:*').forEach((node) => node.remove());
+    doc.querySelectorAll('script, style, meta, link, xml').forEach((node) => node.remove());
+    doc.querySelectorAll('*').forEach((node) => {
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'o:p' || tag.startsWith('v:')) node.remove();
+    });
 
     doc.querySelectorAll('*').forEach((element) => {
       const htmlElement = element as HTMLElement;
@@ -239,28 +243,81 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   /**
-   * Let the browser perform the actual clipboard insertion.
+   * Paste directly into the live contenteditable selection.
    *
-   * This is deliberately native instead of cancelling paste and rebuilding a
-   * Selection/Range ourselves. Chromium/Edge handle Word, Google Docs and
-   * normal browser clipboard payloads much more reliably when contenteditable
-   * is allowed to receive the paste natively.
-   *
-   * We sanitize the resulting DOM on the next tick, after the browser has
-   * inserted the clipboard contents, then emit the updated manuscript HTML.
+   * Important: do not call focus() before inserting. The previous implementation
+   * did that and could destroy the clipboard selection in Chromium/Edge.
+   * We first try the browser's HTML insertion command, then a DOM Range, then
+   * plain text. All three paths use the selection that exists at paste time.
    */
-  const handlePaste = () => {
-    window.setTimeout(() => {
-      const editor = editorRef.current;
-      if (!editor) return;
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
 
-      const sanitized = sanitizePastedHtml(editor.innerHTML);
-      if (sanitized !== editor.innerHTML) {
-        editor.innerHTML = sanitized;
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const html = event.clipboardData.getData('text/html');
+    const text = event.clipboardData.getData('text/plain');
+    const payload = html ? sanitizePastedHtml(html) : plainTextToHtml(text);
+
+    let inserted = false;
+
+    // Fast path: preserve the browser's native editing/undo behavior.
+    try {
+      inserted = document.execCommand(
+        'insertHTML',
+        false,
+        payload || plainTextToHtml(text)
+      );
+    } catch (error) {
+      console.warn('HTML clipboard insertion failed:', error);
+    }
+
+    // Range fallback for browsers where insertHTML is unavailable.
+    if (!inserted) {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0).cloneRange();
+        if (editor.contains(range.commonAncestorContainer)) {
+          try {
+            range.deleteContents();
+            const fragment = range.createContextualFragment(
+              payload || plainTextToHtml(text)
+            );
+            const lastNode = fragment.lastChild;
+            range.insertNode(fragment);
+
+            const caret = document.createRange();
+            if (lastNode) {
+              caret.selectNodeContents(lastNode);
+              caret.collapse(false);
+            } else {
+              caret.setStart(range.endContainer, range.endOffset);
+              caret.collapse(true);
+            }
+            selection.removeAllRanges();
+            selection.addRange(caret);
+            inserted = true;
+          } catch (error) {
+            console.warn('Range clipboard insertion failed:', error);
+          }
+        }
       }
+    }
 
+    // Final fallback: plain text. This guarantees that Ctrl/Cmd+V never
+    // silently does nothing even when a clipboard contains unusual HTML.
+    if (!inserted) {
+      try {
+        inserted = document.execCommand('insertText', false, text);
+      } catch (error) {
+        console.warn('Plain-text clipboard insertion failed:', error);
+      }
+    }
+
+    if (inserted) {
       emitChange();
-    }, 0);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
