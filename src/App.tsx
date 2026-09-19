@@ -52,14 +52,11 @@ import {
   logoutUser,
   isUserAdmin,
   seedInitialFirestoreData,
-  fetchBooksFromFirestore,
-  fetchChaptersFromFirestore,
   fetchUserBookmarksFromFirestore,
   fetchUserReadingProgressFromFirestore,
   fetchSubscribersForBook,
   syncUserProfileToFirestore,
   checkRedirectResult,
-  SimpleAuthUser,
   listenToBooks,
   listenToChapters
 } from './lib/firebase';
@@ -375,7 +372,6 @@ export default function App() {
       }
       }
     } catch (err) {
-      showToast('Chapter could not be saved. The cloud database did not confirm the change.', 'error');
       throw err;
     }
   };
