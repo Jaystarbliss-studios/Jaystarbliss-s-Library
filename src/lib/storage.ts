@@ -312,10 +312,12 @@ export async function saveChapter(chapter: Chapter): Promise<Chapter> {
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: now
     };
+    // Keep the canonical book metadata in Firestore consistent with the chapter.
+    await saveBookToFirestore(books[bookIndex]);
     safeSetJSON(STORAGE_KEYS.BOOKS, books);
   }
 
-  // Update the local cache only after the canonical chapter write succeeds.
+  // Update the local cache only after all canonical writes succeed.
   safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
   return savedChapter;
 }
