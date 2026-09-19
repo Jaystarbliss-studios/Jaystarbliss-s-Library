@@ -54,9 +54,6 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
   onChangePreferences,
   onClose
 }) => {
-  const selectedTheme = THEMES.find((theme) => theme.value === preferences.theme) || THEMES[0];
-  const selectedFont = FONTS.find((font) => font.value === preferences.fontFamily) || FONTS[0];
-
   const selectTheme = (theme: typeof THEMES[number]) => {
     onChangePreferences({
       theme: theme.value,
