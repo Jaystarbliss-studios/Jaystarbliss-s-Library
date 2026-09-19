@@ -76,8 +76,8 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     };
   }, [title, subtitle, content, authorsThoughts, chapterNumber]);
 
-  const handleAutosave = async () => {
-    if (!title.trim() && !content.trim()) return;
+  const handleAutosave = async (): Promise<boolean> => {
+    if (!title.trim() && !content.trim()) return false;
     setAutosaveState('saving');
 
     const cleanText = (content || '').replace(/<[^>]*>?/gm, ' ');
@@ -104,21 +104,22 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     try {
       await onSaveChapter(updatedChapter);
       setAutosaveState('saved');
+      return true;
     } catch (error) {
       console.error('Chapter autosave failed:', error);
       setAutosaveState('error');
+      return false;
     }
   };
 
   const handleManualSaveDraft = async () => {
-    try {
-      await handleAutosave();
-      if (autosaveState !== 'error') {
-        onShowToast('Draft saved successfully to library database', 'success');
-      }
-    } catch (error) {
-      onShowToast('Draft could not be saved to the cloud database.', 'error');
-    }
+    const saved = await handleAutosave();
+    onShowToast(
+      saved
+        ? 'Draft saved successfully to library database'
+        : 'Draft could not be saved to the cloud database.',
+      saved ? 'success' : 'error'
+    );
   };
 
   const handleInitiatePublish = () => {
