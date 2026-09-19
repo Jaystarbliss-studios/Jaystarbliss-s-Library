@@ -137,7 +137,7 @@ export const AdminBookEditorView: React.FC<AdminBookEditorViewProps> = ({
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       onShowToast('Book title is required', 'error');
@@ -179,8 +179,12 @@ export const AdminBookEditorView: React.FC<AdminBookEditorViewProps> = ({
       lastUpdatedAt: now
     };
 
-    onSaveBook(finalBook);
-    onShowToast(`Manuscript "${title}" saved successfully to library`, 'success');
+    try {
+      await onSaveBook(finalBook);
+    } catch (error) {
+      console.error('Book save failed:', error);
+      onShowToast('Book was not saved because the cloud database did not confirm the write.', 'error');
+    }
   };
 
   return (
