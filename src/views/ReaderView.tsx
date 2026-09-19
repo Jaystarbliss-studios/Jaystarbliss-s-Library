@@ -455,17 +455,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
           </div>
 
-          {/* Dedicated "Author's Thoughts..." Editorial Layer */}
-          {preferences.showAuthorsThoughts && chapter.authorsThoughts && (
-            <div className="mb-10">
-              <AuthorsThoughts
-                content={chapter.authorsThoughts}
-                authorName={book.author}
-                mode="sidebar"
-              />
-            </div>
-          )}
-
           {/* Chapter Narrative Body */}
           <article
             className={`prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
@@ -477,6 +466,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               dangerouslySetInnerHTML={{ __html: chapter.content }}
             />
           </article>
+
+          {/* Author's Thoughts intentionally comes after the narrative so the reader
+              reaches the reflection only after experiencing the chapter. */}
+          {preferences.showAuthorsThoughts && chapter.authorsThoughts && (
+            <div className="mt-12 mb-8">
+              <AuthorsThoughts
+                content={chapter.authorsThoughts}
+                authorName={book.author}
+                mode="sidebar"
+              />
+            </div>
+          )}
 
           {/* End of Chapter Ornament */}
           <div className="my-12 text-center">
