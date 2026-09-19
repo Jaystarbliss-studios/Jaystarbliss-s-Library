@@ -205,20 +205,23 @@ export async function saveBook(book: Book): Promise<Book> {
   return updatedBook;
 }
 
-export function deleteBook(id: string): void {
+export async function deleteBook(id: string): Promise<void> {
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    throw new Error('Only a verified administrator can delete books.');
+  }
   const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, []);
-  const filtered = books.filter((b) => b.id !== id);
-  safeSetJSON(STORAGE_KEYS.BOOKS, filtered);
-
-  // Also remove chapters for this book
   const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, []);
-  const filteredChs = chapters.filter((c) => c.bookId !== id);
-  safeSetJSON(STORAGE_KEYS.CHAPTERS, filteredChs);
+  const filteredBooks = books.filter((b) => b.id !== id);
+  const bookChapters = chapters.filter((c) => c.bookId === id);
+  const filteredChapters = chapters.filter((c) => c.bookId !== id);
 
-  // Sync delete to Firestore
-  deleteBookFromFirestore(id).catch((err) =>
-    console.warn('Firestore book delete warning:', err)
-  );
+  await deleteBookFromFirestore(id);
+  for (const chapter of bookChapters) {
+    await deleteChapterFromFirestore(chapter.id);
+  }
+
+  safeSetJSON(STORAGE_KEYS.BOOKS, filteredBooks);
+  safeSetJSON(STORAGE_KEYS.CHAPTERS, filteredChapters);
 }
 
 // ---------------- CHAPTER METHODS ----------------
@@ -322,17 +325,13 @@ export async function deleteChapter(id: string): Promise<void> {
   const target = chapters.find((c) => c.id === id);
   if (!target) return;
 
-  const filtered = chapters.filter((c) => c.id !== id);
-  safeSetJSON(STORAGE_KEYS.CHAPTERS, filtered);
-
-  // Cloud Firestore sync if admin
-  if (auth.currentUser && isUserAdmin(auth.currentUser)) {
-    deleteChapterFromFirestore(id).catch((err) =>
-      console.warn('Could not delete chapter from Cloud Firestore:', err)
-    );
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    throw new Error('Only a verified administrator can delete chapters.');
   }
 
-  // Update book
+  const filtered = chapters.filter((c) => c.id !== id);
+  await deleteChapterFromFirestore(id);
+
   const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
   const bookIndex = books.findIndex((b) => b.id === target.bookId);
   if (bookIndex >= 0) {
@@ -348,6 +347,7 @@ export async function deleteChapter(id: string): Promise<void> {
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: new Date().toISOString()
     };
+    await saveBookToFirestore(books[bookIndex]);
     safeSetJSON(STORAGE_KEYS.BOOKS, books);
   }
   safeSetJSON(STORAGE_KEYS.CHAPTERS, filtered);
