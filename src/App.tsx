@@ -445,6 +445,10 @@ export default function App() {
     refreshData();
   };
 
+  const scheduledPendingCount = chapters.filter((c) => c.status === 'scheduled').length;
+
+  const isAdmin = isUserAdmin(firebaseUser);
+
   // Public chapter counts are derived from the same live Firestore chapter
   // listener used to render readable chapters. This prevents stale book
   // metadata from making shelves display an old published count.
@@ -455,7 +459,7 @@ export default function App() {
 
       return {
         ...book,
-        publishedChapterCount: isAdmin ? publishedCount : publishedCount,
+        publishedChapterCount: publishedCount,
         scheduledChapterCount: isAdmin
           ? bookChapters.filter((chapter) => chapter.status === 'scheduled').length
           : (book.scheduledChapterCount || 0)
@@ -463,7 +467,7 @@ export default function App() {
     });
   }, [books, chapters, isAdmin]);
 
-// Current entity lookups
+  // Current entity lookups
   const activeBook = displayBooks.find((b) => b.slug === selectedBookSlug) || displayBooks[0];
   const activeBookChapters = activeBook ? chapters.filter((c) => c.bookId === activeBook.id) : [];
   const activeChapter = activeBookChapters.find((c) => c.chapterNumber === selectedChapterNumber) || activeBookChapters[0];
@@ -479,28 +483,6 @@ export default function App() {
     acc[p.bookId] = p;
     return acc;
   }, {} as Record<string, ReadingProgress>);
-
-  const scheduledPendingCount = chapters.filter((c) => c.status === 'scheduled').length;
-
-  const isAdmin = isUserAdmin(firebaseUser);
-
-  // Public chapter counts are derived from the same live Firestore chapter
-  // listener used to render readable chapters. This prevents stale book
-  // metadata from making shelves display an old published count.
-  const displayBooks = useMemo(() => {
-    return books.map((book) => {
-      const bookChapters = chapters.filter((chapter) => chapter.bookId === book.id);
-      const publishedCount = bookChapters.filter((chapter) => chapter.status === 'published').length;
-
-      return {
-        ...book,
-        publishedChapterCount: isAdmin ? publishedCount : publishedCount,
-        scheduledChapterCount: isAdmin
-          ? bookChapters.filter((chapter) => chapter.status === 'scheduled').length
-          : (book.scheduledChapterCount || 0)
-      };
-    });
-  }, [books, chapters, isAdmin]);
 
   // Repair legacy/stale denormalized counters while an authorized author is
   // online. Readers continue to receive only published chapter documents.
