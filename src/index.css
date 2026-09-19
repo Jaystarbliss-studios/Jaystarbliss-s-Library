@@ -63,10 +63,27 @@
   font-family: var(--font-mono);
 }
 
-/* Reader-selected font must override formatting carried inside pasted manuscript HTML. */
-.reader-content-font,
-.reader-content-font * {
-  font-family: inherit !important;
+/* Reader typography is authoritative over formatting carried inside manuscript HTML. */
+.reader-content-font {
+  font-family: var(--reader-font-family, inherit) !important;
+  font-size: var(--reader-font-size, 18px);
+  line-height: var(--reader-line-height, 1.78);
+}
+
+.reader-content-font :where(p, div, span, li, blockquote, strong, em, b, i, u, s, a) {
+  font-family: var(--reader-font-family, inherit) !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+
+.reader-content-font h1,
+.reader-content-font h2,
+.reader-content-font h3,
+.reader-content-font h4,
+.reader-content-font h5,
+.reader-content-font h6 {
+  font-family: var(--reader-font-family, inherit) !important;
+  line-height: 1.25 !important;
 }
 
 /* Literary Editorial Drop Cap */
