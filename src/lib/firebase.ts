@@ -462,3 +462,31 @@ export async function fetchSubscribersForBook(bookId: string): Promise<{ userId:
   }
 }
 
+
+
+export async function sendChapterNotification(chapterId: string): Promise<{ sent: number; failed: number; total: number }> {
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser)) {
+    throw new Error('Only an authorized Library X administrator can send chapter notifications.');
+  }
+
+  const idToken = await auth.currentUser.getIdToken();
+  const response = await fetch('/api/send-chapter-notification', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`
+    },
+    body: JSON.stringify({ chapterId })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok && response.status !== 207) {
+    throw new Error(payload.error || 'Chapter notification service failed.');
+  }
+
+  return {
+    sent: Number(payload.sent || 0),
+    failed: Number(payload.failed || 0),
+    total: Number(payload.total || 0)
+  };
+}
