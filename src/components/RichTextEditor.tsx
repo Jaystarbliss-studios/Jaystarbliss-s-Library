@@ -225,12 +225,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const plainTextToHtml = (text: string) => {
     return text
-      .replace(/\\r\\n/g, '\\n')
-      .replace(/\\r/g, '\\n')
-      .split(/\\n{2,}/)
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split(/\n{2,}/)
       .map((paragraph) => {
         const safe = paragraph
-          .split('\\n')
+          .split('\n')
           .map((line) => escapeHtml(line.trimEnd()))
           .join('<br>');
         return `<p>${safe}</p>`;
@@ -238,84 +238,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       .join('');
   };
 
-  const restoreEditorSelection = () => {
-    const editor = editorRef.current;
-    const selection = window.getSelection();
-    if (!editor || !selection) return null;
+  /**
+   * Let the browser perform the actual clipboard insertion.
+   *
+   * This is deliberately native instead of cancelling paste and rebuilding a
+   * Selection/Range ourselves. Chromium/Edge handle Word, Google Docs and
+   * normal browser clipboard payloads much more reliably when contenteditable
+   * is allowed to receive the paste natively.
+   *
+   * We sanitize the resulting DOM on the next tick, after the browser has
+   * inserted the clipboard contents, then emit the updated manuscript HTML.
+   */
+  const handlePaste = () => {
+    window.setTimeout(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
 
-    if (
-      selection.rangeCount > 0 &&
-      editor.contains(selection.anchorNode) &&
-      editor.contains(selection.focusNode)
-    ) {
-      return selection.getRangeAt(0).cloneRange();
-    }
-
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    range.collapse(false);
-    return range;
-  };
-
-  const insertHtmlAtSelection = (html: string) => {
-    const editor = editorRef.current;
-    if (!editor) return false;
-
-    const range = restoreEditorSelection();
-    const selection = window.getSelection();
-    if (!range || !selection) return false;
-
-    range.deleteContents();
-
-    const fragment = range.createContextualFragment(html);
-    const lastNode = fragment.lastChild;
-    range.insertNode(fragment);
-
-    const caret = document.createRange();
-    if (lastNode) {
-      caret.selectNodeContents(lastNode);
-      caret.collapse(false);
-    } else {
-      caret.setStart(range.startContainer, range.startOffset);
-      caret.collapse(true);
-    }
-
-    selection.removeAllRanges();
-    selection.addRange(caret);
-    editor.focus({ preventScroll: true });
-    return true;
-  };
-
-  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-    const html = event.clipboardData.getData('text/html');
-    const text = event.clipboardData.getData('text/plain');
-
-    // The browser normally owns paste insertion in contenteditable. Once we
-    // cancel that default, we must insert the clipboard payload ourselves.
-    // Using a saved Selection + Range avoids the disappearing-paste issue caused
-    // by refocusing a contenteditable before execCommand runs.
-    event.preventDefault();
-
-    const cleanedHtml = html ? sanitizePastedHtml(html) : plainTextToHtml(text);
-    const payload = cleanedHtml || plainTextToHtml(text);
-
-    if (!insertHtmlAtSelection(payload)) {
-      // Last-resort plain text insertion.
-      const fallback = document.createTextNode(text);
-      const range = restoreEditorSelection();
-      const selection = window.getSelection();
-      if (range && selection && editorRef.current) {
-        range.deleteContents();
-        range.insertNode(fallback);
-        range.setStartAfter(fallback);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        editorRef.current.focus({ preventScroll: true });
+      const sanitized = sanitizePastedHtml(editor.innerHTML);
+      if (sanitized !== editor.innerHTML) {
+        editor.innerHTML = sanitized;
       }
-    }
 
-    emitChange();
+      emitChange();
+    }, 0);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
