@@ -58,6 +58,70 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
   const isFirstMount = useRef(true);
   const autosaveTimeoutRef = useRef<any>(null);
 
+  const publishedDraftKey = chapter?.id
+    ? `jsb_published_chapter_draft_${chapter.id}`
+    : null;
+
+  const savePublishedDraftLocally = () => {
+    if (!publishedDraftKey) return;
+    try {
+      localStorage.setItem(
+        publishedDraftKey,
+        JSON.stringify({
+          bookId: selectedBookId,
+          chapterNumber,
+          title,
+          subtitle,
+          content,
+          authorsThoughts,
+          scheduledDate,
+          savedAt: new Date().toISOString()
+        })
+      );
+    } catch (error) {
+      console.warn('Could not autosave local published-chapter draft:', error);
+    }
+  };
+
+  const clearPublishedDraftLocally = () => {
+    if (!publishedDraftKey) return;
+    try {
+      localStorage.removeItem(publishedDraftKey);
+    } catch (error) {
+      console.warn('Could not clear local published-chapter draft:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!chapter?.id || chapter.status !== 'published') return;
+
+    try {
+      const raw = localStorage.getItem(`jsb_published_chapter_draft_${chapter.id}`);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as {
+        bookId?: string;
+        chapterNumber?: number;
+        title?: string;
+        subtitle?: string;
+        content?: string;
+        authorsThoughts?: string;
+        scheduledDate?: string;
+      };
+
+      if (draft.bookId) setSelectedBookId(draft.bookId);
+      if (typeof draft.chapterNumber === 'number') setChapterNumber(draft.chapterNumber);
+      if (typeof draft.title === 'string') setTitle(draft.title);
+      if (typeof draft.subtitle === 'string') setSubtitle(draft.subtitle);
+      if (typeof draft.content === 'string') setContent(draft.content);
+      if (typeof draft.authorsThoughts === 'string') setAuthorsThoughts(draft.authorsThoughts);
+      if (typeof draft.scheduledDate === 'string') setScheduledDate(draft.scheduledDate);
+
+      onShowToast('Unpublished local draft restored. Readers still see the last published version until you publish.', 'info');
+    } catch (error) {
+      console.warn('Could not restore local published-chapter draft:', error);
+    }
+  }, [chapter?.id, chapter?.status]);
+
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
@@ -77,6 +141,15 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
   }, [title, subtitle, content, authorsThoughts, chapterNumber]);
 
   const handleAutosave = async (): Promise<boolean> => {
+    // Published chapters use a private browser draft while being edited.
+    // Their live Firestore document is not touched until PUBLISH NOW is confirmed.
+    if (chapter?.status === 'published') {
+      setAutosaveState('saving');
+      savePublishedDraftLocally();
+      setAutosaveState('saved');
+      return true;
+    }
+
     if (!title.trim() && !content.trim()) return false;
     setAutosaveState('saving');
 
@@ -116,7 +189,9 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     const saved = await handleAutosave();
     onShowToast(
       saved
-        ? 'Draft saved successfully to library database'
+        ? chapter?.status === 'published'
+          ? 'Unpublished edits saved locally. The live chapter is unchanged until you publish.'
+          : 'Draft saved successfully to library database'
         : 'Draft could not be saved to the cloud database.',
       saved ? 'success' : 'error'
     );
@@ -173,6 +248,9 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
 
     try {
       await onSaveChapter(finalChapter);
+      if (pendingAction === 'publish') {
+        clearPublishedDraftLocally();
+      }
       setStatus(finalChapter.status);
       onShowToast(
         isScheduling
@@ -216,7 +294,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
                   autosaveState === 'saved' ? 'bg-emerald-500' : autosaveState === 'saving' ? 'bg-amber-500 animate-pulse' : autosaveState === 'error' ? 'bg-red-500' : 'bg-zinc-500'
                 }`} />
                 <span>
-                  {autosaveState === 'saved' && 'Draft Saved'}
+                  {autosaveState === 'saved' && (chapter?.status === 'published' ? 'Draft Saved Locally' : 'Draft Saved')}
                   {autosaveState === 'saving' && 'Saving...'}
                   {autosaveState === 'unsaved' && 'Unsaved changes'}\n                  {autosaveState === 'error' && 'Cloud save failed'}
                 </span>
