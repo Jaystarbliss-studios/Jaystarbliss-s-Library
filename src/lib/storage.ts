@@ -133,6 +133,7 @@ export function checkAndPublishScheduled(): boolean {
         ...book,
         totalChapters: bookChs.length,
         publishedChapterCount: publishedChs.length,
+        scheduledChapterCount: bookChs.filter((c) => c.status === 'scheduled').length,
         latestChapterNumber: latest ? latest.chapterNumber : 0,
         latestChapterTitle: latest ? latest.title : '',
         lastUpdatedAt: now
@@ -300,6 +301,7 @@ export async function saveChapter(chapter: Chapter): Promise<Chapter> {
       ...books[bookIndex],
       totalChapters: bookChs.length,
       publishedChapterCount: publishedChs.length,
+      scheduledChapterCount: bookChs.filter((c) => c.status === 'scheduled').length,
       latestChapterNumber: latest ? latest.chapterNumber : 0,
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: now
@@ -337,6 +339,7 @@ export async function deleteChapter(id: string): Promise<void> {
       ...books[bookIndex],
       totalChapters: bookChs.length,
       publishedChapterCount: publishedChs.length,
+      scheduledChapterCount: bookChs.filter((c) => c.status === 'scheduled').length,
       latestChapterNumber: latest ? latest.chapterNumber : 0,
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: new Date().toISOString()
