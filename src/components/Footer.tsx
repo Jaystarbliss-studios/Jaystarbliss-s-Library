@@ -1,5 +1,6 @@
 import React from 'react';
 import { Feather, Shield, Heart } from 'lucide-react';
+import libraryXDarkLogo from '../library x - dark theme.png';
 
 interface FooterProps {
   onNavigate: (route: string) => void;
@@ -14,18 +15,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
           
           {/* Brand & Mission */}
           <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 shadow-sm">
-                <Feather className="w-4 h-4 text-amber-400" />
-              </div>
-              <div>
-                <span className="font-cinzel text-lg font-bold tracking-widest text-zinc-100 block">
-                  LIBRARY X
-                </span>
-                <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
-                  A DIGITAL PUBLISHING PLATFORM & ARCHIVE
-                </span>
-              </div>
+            <div className="flex items-center gap-3">
+              <img src={libraryXDarkLogo} alt="Library X" className="h-10 w-auto object-contain" />
+              <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
+                A DIGITAL PUBLISHING PLATFORM & ARCHIVE
+              </span>
             </div>
             
             <p className="text-zinc-400 text-sm leading-relaxed max-w-lg font-cambria italic">
