@@ -392,6 +392,7 @@ export async function publishScheduledNow(chapterId: string): Promise<Chapter | 
     books[bookIndex] = {
       ...books[bookIndex],
       publishedChapterCount: publishedChs.length,
+      scheduledChapterCount: bookChs.filter((c) => c.status === 'scheduled').length,
       latestChapterNumber: latest ? latest.chapterNumber : 0,
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: now
