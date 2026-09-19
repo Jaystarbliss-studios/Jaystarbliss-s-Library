@@ -72,6 +72,8 @@ export interface ChapterComment {
   content: string;
   createdAt: string;
   likes?: number;
+  /** ID of the parent comment when this is a reply. Top-level comments omit this. */
+  parentCommentId?: string;
 }
 
 export interface ReadingProgress {
