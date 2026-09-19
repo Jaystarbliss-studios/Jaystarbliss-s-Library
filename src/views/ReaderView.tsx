@@ -476,7 +476,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               lineHeight: activeTypography.lineHeight,
               ['--reader-font-family' as string]: currentFontFamilyStyle,
               ['--reader-font-size' as string]: activeTypography.size,
-              ['--reader-line-height' as string]: activeTypography.lineHeight
+              ['--reader-line-height' as string]: activeTypography.lineHeight,
+              ['--reader-text-color' as string]: customTextColor
             } as React.CSSProperties}
           >
             <div
