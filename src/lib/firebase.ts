@@ -281,10 +281,36 @@ export async function fetchChaptersFromFirestore(): Promise<Chapter[]> {
   }
 }
 
+/**
+ * Firestore rejects JavaScript undefined values. Optional fields in our domain
+ * models are intentionally represented as undefined when they are empty, so
+ * strip those fields before every document write rather than letting a single
+ * optional property abort the entire publication.
+ */
+function sanitizeFirestoreData<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeFirestoreData(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const sanitized: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+      if (item !== undefined) {
+        sanitized[key] = sanitizeFirestoreData(item);
+      }
+    });
+    return sanitized as T;
+  }
+
+  return value;
+}
+
 export async function saveBookToFirestore(book: Book): Promise<void> {
   const path = `books/${book.id}`;
   try {
-    await setDoc(doc(db, 'books', book.id), book);
+    await setDoc(doc(db, 'books', book.id), sanitizeFirestoreData(book));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -293,7 +319,7 @@ export async function saveBookToFirestore(book: Book): Promise<void> {
 export async function saveChapterToFirestore(chapter: Chapter): Promise<void> {
   const path = `chapters/${chapter.id}`;
   try {
-    await setDoc(doc(db, 'chapters', chapter.id), chapter);
+    await setDoc(doc(db, 'chapters', chapter.id), sanitizeFirestoreData(chapter));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
