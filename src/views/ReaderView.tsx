@@ -17,7 +17,6 @@ import {
   X,
   Bell
 } from 'lucide-react';
-import { isDarkColor } from '../lib/colorUtils';
 import {
   saveReadingProgress,
   isBookmarked as checkIsBookmarked,
@@ -130,6 +129,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
   // Font family class mapping
   const fontClasses: Record<string, string> = {
+    merriweather: 'font-merriweather',
+    lora: 'font-lora',
+    inter: 'font-inter',
+    roboto: 'font-roboto',
     garamond: 'font-garamond',
     newsreader: 'font-newsreader',
     cambria: 'font-cambria',
@@ -166,7 +169,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       headerBorder: 'border-zinc-800/80',
       metaText: 'text-zinc-400',
       ruleColor: 'border-zinc-800/80',
-      prose: 'text-[#e2e2e8]',
+      prose: 'text-[#f4f6fb]',
       buttonBg: 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
     },
     obsidian: {
@@ -184,15 +187,20 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const currentThemeStyle = themeStyles[preferences.theme] || themeStyles.dark;
   const currentFontClass = fontClasses[preferences.fontFamily] || 'font-cambria';
 
-  // Dynamic user-selected pageColor and textColor with auto-contrast
-  const customPageColor = preferences.pageColor || (
-    preferences.theme === 'light' ? '#ffffff' :
-    preferences.theme === 'sepia' ? '#f4ecd8' :
-    preferences.theme === 'dark' ? '#14141b' : '#09090c'
-  );
-  const isDarkPage = isDarkColor(customPageColor);
-  const customTextColor = preferences.textColor || (isDarkPage ? '#f4f4f5' : '#18181b');
-  const customWrapperBg = isDarkPage ? '#09090d' : '#ede8df';
+  // Reading themes are intentionally resolved here rather than trusting old
+  // saved custom colors. This prevents a stale low-contrast text color from
+  // surviving a theme switch.
+  const resolvedTheme = preferences.theme === 'obsidian' ? 'dark' : preferences.theme;
+  const themePalette = {
+    light: { page: '#ffffff', text: '#17181c', wrapper: '#f1f3f6' },
+    sepia: { page: '#f4ecd8', text: '#2b2117', wrapper: '#2b241d' },
+    dark: { page: '#151922', text: '#f4f6fb', wrapper: '#080b10' }
+  } as const;
+  const activePalette = themePalette[resolvedTheme as keyof typeof themePalette] || themePalette.dark;
+  const customPageColor = activePalette.page;
+  const customTextColor = activePalette.text;
+  const customWrapperBg = activePalette.wrapper;
+  const isDarkPage = resolvedTheme === 'dark';
 
   return (
     <div 
