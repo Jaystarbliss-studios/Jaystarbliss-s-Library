@@ -468,12 +468,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
           {/* Chapter Narrative Body */}
           <article
-            className={`prose max-w-none ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
+            className={`prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
             style={{ color: customTextColor }}
           >
             <div
               className="drop-cap leading-relaxed"
-              style={{ color: customTextColor }}
+              style={{ color: customTextColor, '--reader-text-color': customTextColor } as React.CSSProperties}
               dangerouslySetInnerHTML={{ __html: chapter.content }}
             />
           </article>
