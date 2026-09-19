@@ -66,14 +66,22 @@
 /* Reader typography is authoritative over formatting carried inside manuscript HTML. */
 .reader-content-font {
   font-family: var(--reader-font-family, inherit) !important;
-  font-size: var(--reader-font-size, 18px);
-  line-height: var(--reader-line-height, 1.78);
+  font-size: var(--reader-font-size, 18px) !important;
+  line-height: var(--reader-line-height, 1.78) !important;
+  color: var(--reader-text-color, inherit) !important;
 }
 
-.reader-content-font :where(p, div, span, li, blockquote, strong, em, b, i, u, s, a) {
+/* Manuscript HTML can contain its own inline colors from the editor/paste.
+   Reader theme must remain authoritative so dark mode never renders black
+   text against the dark page. */
+.reader-content-font :where(
+  p, div, span, li, blockquote, strong, em, b, i, u, s, a,
+  small, mark, q, cite, code, pre, td, th
+) {
   font-family: var(--reader-font-family, inherit) !important;
   font-size: inherit !important;
   line-height: inherit !important;
+  color: var(--reader-text-color, inherit) !important;
 }
 
 .reader-content-font h1,
@@ -84,6 +92,7 @@
 .reader-content-font h6 {
   font-family: var(--reader-font-family, inherit) !important;
   line-height: 1.25 !important;
+  color: var(--reader-text-color, inherit) !important;
 }
 
 /* Literary Editorial Drop Cap */
