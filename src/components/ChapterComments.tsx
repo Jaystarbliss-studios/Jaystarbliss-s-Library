@@ -138,30 +138,28 @@ export const ChapterComments: React.FC<ChapterCommentsProps> = ({
     }
   };
 
+  const currentThemeTextColor = '#2b2117';
+
   const isAuthor = (email?: string) => {
     return email?.toLowerCase() === 'johnrufai242@gmail.com';
   };
 
   return (
-    <section className="mt-14 pt-10 border-t border-zinc-800/60 max-w-4xl mx-auto">
+    <section className="mt-14 pt-10 border-t max-w-4xl mx-auto" style={{ borderColor: `color-mix(in srgb, ${currentThemeTextColor} 18%, transparent)` }}>
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-zinc-900/90 border border-zinc-700/60 flex items-center justify-center text-amber-400 shadow-inner">
+          <div className="w-10 h-10 rounded-2xl border flex items-center justify-center shadow-inner" style={{ backgroundColor: `color-mix(in srgb, ${currentThemeTextColor} 7%, transparent)`, borderColor: `color-mix(in srgb, ${currentThemeTextColor} 18%, transparent)`, color: currentThemeTextColor }}>
             <MessageSquare className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-cinzel text-xl font-bold tracking-wide text-zinc-100">
-                Chapter {chapterNumber} Literary Salon
+              <h3 className="font-cinzel text-xl font-bold tracking-wide text-zinc-900 dark:text-zinc-100">
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs font-mono-space text-zinc-300">
+              <span className="px-2.5 py-0.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs font-mono-space text-zinc-700 dark:text-zinc-300">
                 {comments.length} {comments.length === 1 ? 'thought' : 'thoughts'}
               </span>
             </div>
-            <p className="font-mono-space text-xs text-zinc-400">
-              Discussions and reflections recorded directly to the cloud archive
-            </p>
           </div>
         </div>
       </div>
