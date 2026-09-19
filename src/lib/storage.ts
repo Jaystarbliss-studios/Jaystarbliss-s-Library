@@ -98,10 +98,9 @@ export function initializeStorage(): void {
   if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {
     safeSetJSON(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-    // Default logged in as admin author for seamless publishing experience, toggleable in UI
-    safeSetJSON(STORAGE_KEYS.CURRENT_USER, DEFAULT_ADMIN_USER);
-  }
+  // Authentication is managed exclusively by Firebase Auth.
+  // Never create a default/fake local account.
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   // Immediately check scheduled chapters
   checkAndPublishScheduled();
 }
@@ -176,7 +175,7 @@ export function getBookById(id: string): Book | undefined {
   return books.find((b) => b.id === id);
 }
 
-export function saveBook(book: Book): Book {
+export async function saveBook(book: Book): Promise<Book> {
   const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
   const now = new Date().toISOString();
   const index = books.findIndex((b) => b.id === book.id);
@@ -197,15 +196,12 @@ export function saveBook(book: Book): Book {
     books.push(updatedBook);
   }
 
-  safeSetJSON(STORAGE_KEYS.BOOKS, books);
-
-  // Sync to Cloud Firestore if admin
-  if (auth.currentUser && isUserAdmin(auth.currentUser)) {
-    saveBookToFirestore(updatedBook).catch((err) =>
-      console.warn('Could not sync book to Cloud Firestore:', err)
-    );
+  // Firestore is the canonical source of truth. Only cache locally after cloud confirmation.
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    throw new Error('Only a verified administrator can save books.');
   }
-
+  await saveBookToFirestore(updatedBook);
+  safeSetJSON(STORAGE_KEYS.BOOKS, books);
   return updatedBook;
 }
 
@@ -256,7 +252,7 @@ export function getChapterById(id: string): Chapter | undefined {
   return chapters.find((c) => c.id === id);
 }
 
-export function saveChapter(chapter: Chapter): Chapter {
+export async function saveChapter(chapter: Chapter): Promise<Chapter> {
   const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
   const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
   const now = new Date().toISOString();
@@ -292,7 +288,11 @@ export function saveChapter(chapter: Chapter): Chapter {
     chapters.push(savedChapter);
   }
 
-  safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
+  // Cloud persistence happens before local cache mutation.
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    throw new Error('Only a verified administrator can save chapters.');
+  }
+  await saveChapterToFirestore(savedChapter);
 
   // Sync book metadata
   const bookIndex = books.findIndex((b) => b.id === savedChapter.bookId);
@@ -312,17 +312,12 @@ export function saveChapter(chapter: Chapter): Chapter {
     safeSetJSON(STORAGE_KEYS.BOOKS, books);
   }
 
-  // Sync chapter to Cloud Firestore if admin
-  if (auth.currentUser && isUserAdmin(auth.currentUser)) {
-    saveChapterToFirestore(savedChapter).catch((err) =>
-      console.warn('Could not sync chapter to Cloud Firestore:', err)
-    );
-  }
-
+  // Update the local cache only after the canonical chapter write succeeds.
+  safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
   return savedChapter;
 }
 
-export function deleteChapter(id: string): void {
+export async function deleteChapter(id: string): Promise<void> {
   const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
   const target = chapters.find((c) => c.id === id);
   if (!target) return;
@@ -355,6 +350,7 @@ export function deleteChapter(id: string): void {
     };
     safeSetJSON(STORAGE_KEYS.BOOKS, books);
   }
+  safeSetJSON(STORAGE_KEYS.CHAPTERS, filtered);
 }
 
 export function reorderChapters(bookId: string, orderedIds: string[]): void {
@@ -372,7 +368,7 @@ export function reorderChapters(bookId: string, orderedIds: string[]): void {
   safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
 }
 
-export function publishScheduledNow(chapterId: string): Chapter | undefined {
+export async function publishScheduledNow(chapterId: string): Promise<Chapter | undefined> {
   const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
   const target = chapters.find((c) => c.id === chapterId);
   if (!target) return undefined;
@@ -383,7 +379,10 @@ export function publishScheduledNow(chapterId: string): Chapter | undefined {
   target.scheduledFor = undefined;
   target.updatedAt = now;
 
-  safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    throw new Error('Only a verified administrator can publish chapters.');
+  }
+  await saveChapterToFirestore(target);
 
   // Update Book
   const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
@@ -400,8 +399,10 @@ export function publishScheduledNow(chapterId: string): Chapter | undefined {
       latestChapterTitle: latest ? latest.title : '',
       lastUpdatedAt: now
     };
+    await saveBookToFirestore(books[bookIndex]);
     safeSetJSON(STORAGE_KEYS.BOOKS, books);
   }
+  safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
 
   return target;
 }
@@ -684,13 +685,17 @@ export const getBooks = getAllBooks;
 export const getReadingProgressList = getAllReadingProgress;
 export const getReadingProgress = getReadingProgressForBook;
 
-export function cancelScheduledRelease(chapterId: string): void {
+export async function cancelScheduledRelease(chapterId: string): Promise<void> {
   const chapters = safeGetJSON<Chapter[]>(STORAGE_KEYS.CHAPTERS, INITIAL_CHAPTERS);
   const target = chapters.find((c) => c.id === chapterId);
   if (target && target.status === 'scheduled') {
     target.status = 'draft';
     target.scheduledFor = undefined;
     target.updatedAt = new Date().toISOString();
+    if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+      throw new Error('Only a verified administrator can modify schedules.');
+    }
+    await saveChapterToFirestore(target);
     safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
   }
 }
