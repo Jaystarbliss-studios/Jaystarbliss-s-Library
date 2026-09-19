@@ -694,6 +694,30 @@ export async function cancelScheduledRelease(chapterId: string): Promise<void> {
       throw new Error('Only a verified administrator can modify schedules.');
     }
     await saveChapterToFirestore(target);
+
+    // Keep the public book counters synchronized when a scheduled chapter
+    // is cancelled and becomes a draft.
+    const books = safeGetJSON<Book[]>(STORAGE_KEYS.BOOKS, INITIAL_BOOKS);
+    const bookIndex = books.findIndex((b) => b.id === target.bookId);
+    if (bookIndex >= 0) {
+      const bookChs = chapters.filter((c) => c.bookId === target.bookId);
+      const publishedChs = bookChs.filter((c) => c.status === 'published');
+      const latest = [...publishedChs].sort((a, b) => b.chapterNumber - a.chapterNumber)[0];
+
+      books[bookIndex] = {
+        ...books[bookIndex],
+        totalChapters: bookChs.length,
+        publishedChapterCount: publishedChs.length,
+        scheduledChapterCount: bookChs.filter((c) => c.status === 'scheduled').length,
+        latestChapterNumber: latest ? latest.chapterNumber : 0,
+        latestChapterTitle: latest ? latest.title : '',
+        lastUpdatedAt: target.updatedAt
+      };
+
+      await saveBookToFirestore(books[bookIndex]);
+      safeSetJSON(STORAGE_KEYS.BOOKS, books);
+    }
+
     safeSetJSON(STORAGE_KEYS.CHAPTERS, chapters);
   }
 }
