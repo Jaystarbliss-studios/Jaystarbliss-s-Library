@@ -186,7 +186,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-zinc-950/70 border border-zinc-800/80 rounded-2xl">
               <div>
                 <span className="block font-cinzel text-xl font-bold text-white">
-                  {book.publishedChapterCount}
+                  {publishedChapters.length}
                 </span>
                 <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
                   Published Chapters
