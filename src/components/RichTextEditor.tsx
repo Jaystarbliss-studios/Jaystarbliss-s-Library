@@ -217,6 +217,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     return doc.body.innerHTML;
   };
 
+  const escapeHtml = (text: string) => {
+    const container = document.createElement('div');
+    container.textContent = text;
+    return container.innerHTML;
+  };
+
   const plainTextToHtml = (text: string) => {
     return text
       .replace(/\\r\\n/g, '\\n')
@@ -225,28 +231,88 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       .map((paragraph) => {
         const safe = paragraph
           .split('\\n')
-          .map((line) => line.trimEnd())
+          .map((line) => escapeHtml(line.trimEnd()))
           .join('<br>');
         return `<p>${safe}</p>`;
       })
       .join('');
   };
 
-  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
-    event.preventDefault();
+  const restoreEditorSelection = () => {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection) return null;
 
+    if (
+      selection.rangeCount > 0 &&
+      editor.contains(selection.anchorNode) &&
+      editor.contains(selection.focusNode)
+    ) {
+      return selection.getRangeAt(0).cloneRange();
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    return range;
+  };
+
+  const insertHtmlAtSelection = (html: string) => {
+    const editor = editorRef.current;
+    if (!editor) return false;
+
+    const range = restoreEditorSelection();
+    const selection = window.getSelection();
+    if (!range || !selection) return false;
+
+    range.deleteContents();
+
+    const fragment = range.createContextualFragment(html);
+    const lastNode = fragment.lastChild;
+    range.insertNode(fragment);
+
+    const caret = document.createRange();
+    if (lastNode) {
+      caret.selectNodeContents(lastNode);
+      caret.collapse(false);
+    } else {
+      caret.setStart(range.startContainer, range.startOffset);
+      caret.collapse(true);
+    }
+
+    selection.removeAllRanges();
+    selection.addRange(caret);
+    editor.focus({ preventScroll: true });
+    return true;
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     const html = event.clipboardData.getData('text/html');
     const text = event.clipboardData.getData('text/plain');
 
+    // The browser normally owns paste insertion in contenteditable. Once we
+    // cancel that default, we must insert the clipboard payload ourselves.
+    // Using a saved Selection + Range avoids the disappearing-paste issue caused
+    // by refocusing a contenteditable before execCommand runs.
+    event.preventDefault();
+
     const cleanedHtml = html ? sanitizePastedHtml(html) : plainTextToHtml(text);
+    const payload = cleanedHtml || plainTextToHtml(text);
 
-    editorRef.current?.focus();
-
-    try {
-      // Insert the formatted clipboard payload at the current selection.
-      document.execCommand('insertHTML', false, cleanedHtml || plainTextToHtml(text));
-    } catch {
-      document.execCommand('insertText', false, text);
+    if (!insertHtmlAtSelection(payload)) {
+      // Last-resort plain text insertion.
+      const fallback = document.createTextNode(text);
+      const range = restoreEditorSelection();
+      const selection = window.getSelection();
+      if (range && selection && editorRef.current) {
+        range.deleteContents();
+        range.insertNode(fallback);
+        range.setStartAfter(fallback);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        editorRef.current.focus({ preventScroll: true });
+      }
     }
 
     emitChange();
