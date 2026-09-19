@@ -41,7 +41,7 @@ const STORAGE_KEYS = {
 
 const DEFAULT_PREFERENCES: ReaderPreferences = {
   fontSize: 'base',
-  fontFamily: 'cambria',
+  fontFamily: 'merriweather',
   readingWidth: 'standard',
   theme: 'light',
   showAuthorsThoughts: true,
