@@ -102,3 +102,81 @@
   background: #3f3f46;
 }
 
+
+
+/* Mobile/PWA ergonomics */
+html {
+  min-width: 320px;
+  background: #09090d;
+  overscroll-behavior-x: none;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role="button"],
+a {
+  touch-action: manipulation;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-size: 16px;
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Keep fixed mobile navigation from covering the last row of content. */
+  #root > div {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+
+  /* Reader mode owns its own full-screen layout and bottom controls. */
+  #root > div:has(.reader-content-font) {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 374px) {
+  #root > div {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}
