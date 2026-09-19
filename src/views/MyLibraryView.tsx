@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 import { Bookmark, ReadingProgress, Book } from '../types';
 import {
   Bookmark as BookmarkIcon,
@@ -18,7 +19,7 @@ import {
 interface MyLibraryViewProps {
   bookmarks: Bookmark[];
   readingProgressList: ReadingProgress[];
-  firebaseUser: User | null;
+  firebaseUser: User | SimpleAuthUser | null;
   onLoginWithGoogle: () => void;
   onSelectBook: (slug: string) => void;
   onSelectChapter: (slug: string, chapterNumber: number) => void;

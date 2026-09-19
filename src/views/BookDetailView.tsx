@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 import { Book, Chapter, ReadingProgress } from '../types';
 import { ChapterList } from '../components/ChapterList';
 import {
@@ -24,7 +25,7 @@ interface BookDetailViewProps {
   chapters: Chapter[];
   progress?: ReadingProgress;
   userId: string;
-  currentUser?: User | null;
+  currentUser?: User | SimpleAuthUser | null;
   onSelectChapter: (chapterNumber: number) => void;
   onStartReading: (chapterNumber: number) => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;

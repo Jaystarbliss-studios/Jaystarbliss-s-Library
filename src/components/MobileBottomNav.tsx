@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Clock, Search, Bookmark, Shield } from 'lucide-react';
+import { BookOpen, Clock, Compass, Search, Bookmark, Shield } from 'lucide-react';
 
 interface MobileBottomNavProps {
   currentRoute: string;
@@ -31,6 +31,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       label: 'Latest',
       icon: Clock,
       isActive: currentRoute === 'latest'
+    },
+    {
+      id: 'genres',
+      label: 'Genres',
+      icon: Compass,
+      isActive: currentRoute === 'genres'
     },
     {
       id: 'search',

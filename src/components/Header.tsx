@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 import {
+  BookOpen,
+  Clock,
+  Compass,
+  Bookmark,
+  Search,
   Shield,
   Menu,
   X,
-  Feather,
   LogIn,
   LogOut
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 
 interface HeaderProps {
   currentRoute: string;
   onNavigate: (route: string, params?: Record<string, string>) => void;
   currentUser: UserProfile | null;
-  firebaseUser: User | null;
+  firebaseUser: User | SimpleAuthUser | null;
   onToggleUserRole?: () => void;
   bookmarkCount: number;
   onLoginWithGoogle: () => void;
@@ -32,13 +37,13 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Pure typography nav links: only show MY SHELF if signed in with Google
+  // Navigation links with icons for Library, Latest, Genres, Search, and My Shelf
   const navLinks = [
-    { label: 'LIBRARY', route: 'library' },
-    { label: 'LATEST', route: 'latest' },
-    { label: 'GENRES', route: 'genres' },
-    ...(firebaseUser ? [{ label: 'MY SHELF', route: 'my-library', badge: bookmarkCount > 0 ? bookmarkCount : null }] : []),
-    { label: 'SEARCH', route: 'search' }
+    { label: 'LIBRARY', route: 'library', icon: BookOpen },
+    { label: 'LATEST', route: 'latest', icon: Clock },
+    { label: 'GENRES', route: 'genres', icon: Compass },
+    ...(firebaseUser ? [{ label: 'MY SHELF', route: 'my-library', icon: Bookmark, badge: bookmarkCount > 0 ? bookmarkCount : null }] : []),
+    { label: 'SEARCH', route: 'search', icon: Search }
   ];
 
   const handleNav = (route: string) => {
@@ -52,38 +57,35 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full bg-[#0d0d12]/95 backdrop-blur-xl border-b border-zinc-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         
-        {/* Brand Logo - pure LIBRARY X */}
+        {/* Brand Logo - pure typography without any circle containers */}
         <div 
           onClick={() => handleNav('home')} 
-          className="cursor-pointer group flex items-center gap-3 select-none"
+          className="cursor-pointer group flex items-center select-none"
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-100 group-hover:border-zinc-500 transition-all shadow-md group-hover:scale-105">
-            <Feather className="w-5 h-5 text-amber-300 group-hover:text-amber-200 transition-colors" />
-          </div>
-          <div>
-            <span className="font-cinzel text-lg sm:text-xl font-bold tracking-widest text-zinc-100 block group-hover:text-white transition-colors">
-              LIBRARY X
-            </span>
-          </div>
+          <span className="font-cinzel text-xl sm:text-2xl font-bold tracking-widest text-zinc-100 block group-hover:text-white transition-colors">
+            LIBRARY X
+          </span>
         </div>
 
-        {/* Desktop Navigation Links - clean typography without icon clutter */}
+        {/* Desktop Navigation Links with dedicated icons */}
         <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
+            const Icon = link.icon;
             return (
               <button
                 key={link.route}
                 onClick={() => handleNav(link.route)}
-                className={`px-4 py-2 text-xs font-mono-space font-medium tracking-widest rounded-xl transition-all relative ${
+                className={`px-3.5 py-2 text-xs font-mono-space font-medium tracking-widest rounded-xl transition-all relative flex items-center gap-2 group cursor-pointer ${
                   isActive
                     ? 'text-zinc-100 bg-zinc-800/90 border border-zinc-700/70 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
+                <Icon className={`w-3.5 h-3.5 transition-colors ${isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
                 <span>{link.label}</span>
-                {link.badge !== null && (
-                  <span className="ml-1.5 px-2 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] font-bold rounded-full">
+                {link.badge !== null && link.badge !== undefined && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] font-bold rounded-full">
                     {link.badge}
                   </span>
                 )}
@@ -177,6 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
+            const Icon = link.icon;
             return (
               <button
                 key={link.route}
@@ -187,8 +190,11 @@ export const Header: React.FC<HeaderProps> = ({
                     : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
                 }`}
               >
-                <span>{link.label}</span>
-                {link.badge !== null && (
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-zinc-100' : 'text-zinc-400'}`} />
+                  <span>{link.label}</span>
+                </div>
+                {link.badge !== null && link.badge !== undefined && (
                   <span className="px-2 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] rounded-full">
                     {link.badge}
                   </span>

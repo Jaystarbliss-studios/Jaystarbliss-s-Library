@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 import { Book, Chapter, ReaderPreferences } from '../types';
 import { ReadingControls } from '../components/ReadingControls';
 import { AuthorsThoughts } from '../components/AuthorsThoughts';
@@ -30,7 +31,7 @@ interface ReaderViewProps {
   chapter: Chapter;
   allChapters: Chapter[];
   userId: string;
-  currentUser: User | null;
+  currentUser: User | SimpleAuthUser | null;
   onNavigateChapter: (chapterNumber: number) => void;
   onBackToBook: () => void;
   onLoginWithGoogle: () => void;

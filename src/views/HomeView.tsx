@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 import { Book, ReadingProgress, BookStatus } from '../types';
 import { BookCard } from '../components/BookCard';
 import { 
@@ -28,7 +29,7 @@ interface HomeViewProps {
   onViewBook: (slug: string) => void;
   onSelectChapter?: (bookSlug: string, chapterNumber: number) => void;
   onNavigate: (route: string) => void;
-  firebaseUser?: User | null;
+  firebaseUser?: User | SimpleAuthUser | null;
   onLoginWithGoogle?: () => void;
   isAdmin?: boolean;
 }

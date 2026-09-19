@@ -14,14 +14,15 @@ import { ChapterComment } from '../types';
 import {
   listenToChapterComments,
   addCommentToFirestore,
-  deleteCommentFromFirestore
+  deleteCommentFromFirestore,
+  SimpleAuthUser
 } from '../lib/firebase';
 
 interface ChapterCommentsProps {
   chapterId: string;
   bookId: string;
   chapterNumber: number;
-  currentUser: User | null;
+  currentUser: User | SimpleAuthUser | null;
   onLoginWithGoogle: () => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }

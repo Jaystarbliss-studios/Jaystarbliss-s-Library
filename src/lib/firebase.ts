@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   User
@@ -112,6 +114,19 @@ export async function loginWithGoogle(): Promise<User> {
   }
 }
 
+export async function checkRedirectResult(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      console.log('Redirect sign-in resolved:', result.user.email);
+      return result.user;
+    }
+  } catch (error) {
+    console.warn('Redirect sign-in notice:', error);
+  }
+  return null;
+}
+
 export async function logoutUser(): Promise<void> {
   try {
     await signOut(auth);
@@ -126,7 +141,14 @@ export const ADMIN_EMAILS = [
   'johnrufai242@gmail.com'
 ];
 
-export function isUserAdmin(user: User | null): boolean {
+export interface SimpleAuthUser {
+  uid: string;
+  email?: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
+}
+
+export function isUserAdmin(user: SimpleAuthUser | User | null | undefined): boolean {
   if (!user || !user.email) return false;
   return ADMIN_EMAILS.includes(user.email.toLowerCase());
 }

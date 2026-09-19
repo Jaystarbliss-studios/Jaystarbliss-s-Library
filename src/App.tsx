@@ -25,6 +25,7 @@ import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { NotificationToast, ToastMessage } from './components/NotificationToast';
 import { AdminSidebar } from './components/AdminSidebar';
+import { AuthModal } from './components/AuthModal';
 
 import { HomeView } from './views/HomeView';
 import { LibraryView } from './views/LibraryView';
@@ -56,7 +57,9 @@ import {
   fetchUserBookmarksFromFirestore,
   fetchUserReadingProgressFromFirestore,
   fetchSubscribersForBook,
-  syncUserProfileToFirestore
+  syncUserProfileToFirestore,
+  checkRedirectResult,
+  SimpleAuthUser
 } from './lib/firebase';
 import { syncBookmarksWithFirestore, syncProgressWithFirestore, saveBooks, saveChapters } from './lib/storage';
 
@@ -75,7 +78,8 @@ export default function App() {
   });
 
   // Firebase auth & cloud status state
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | SimpleAuthUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
 
   // Admin studio state
@@ -137,10 +141,35 @@ export default function App() {
 
   // Sync with Firestore on mount and listen to Auth state changes
   useEffect(() => {
-    // Listen to Firebase Auth state
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
+    // 1. Check if user arrived via Google sign-in redirect
+    checkRedirectResult().then((user) => {
       if (user) {
+        setFirebaseUser(user);
+        const admin = isUserAdmin(user);
+        setUserRole(admin ? 'author' : 'reader');
+        showToast(`Welcome back, ${user.displayName || user.email}! Google account connected.`, 'success');
+      }
+    });
+
+    // 2. Restore cached local user session if present
+    const cachedSessionStr = localStorage.getItem('library_x_user_session');
+    if (cachedSessionStr) {
+      try {
+        const cached = JSON.parse(cachedSessionStr);
+        if (cached && cached.email) {
+          setFirebaseUser(cached);
+          const admin = isUserAdmin(cached);
+          setUserRole(admin ? 'author' : 'reader');
+        }
+      } catch (e) {
+        console.warn('Could not parse cached session:', e);
+      }
+    }
+
+    // 3. Listen to Firebase Auth state
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setFirebaseUser(user);
         const admin = isUserAdmin(user);
         setUserRole(admin ? 'author' : 'reader');
 
@@ -182,7 +211,12 @@ export default function App() {
           console.warn('Could not sync reading progress from Firestore:', err);
         }
       } else {
-        setUserRole('reader');
+        // If there's no active cached local session, reset to reader
+        const cached = localStorage.getItem('library_x_user_session');
+        if (!cached) {
+          setFirebaseUser(null);
+          setUserRole('reader');
+        }
       }
     });
 
@@ -236,10 +270,10 @@ export default function App() {
         setCurrentRoute('reader');
       } else if (hash === 'admin') {
         // Enforce admin restriction on URL hash change
-        if (!isUserAdmin(auth.currentUser)) {
+        if (!isUserAdmin(firebaseUser)) {
           setCurrentRoute('home');
           window.location.hash = 'home';
-          showToast('Author Studio is strictly restricted to the authorized admin (general5242@gmail.com). You are in Reader mode.', 'info');
+          showToast('Author Studio is strictly reserved for verified author accounts. You are in Reader mode.', 'info');
           return;
         }
         setCurrentRoute('admin');
@@ -251,11 +285,11 @@ export default function App() {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [showToast]);
+  }, [showToast, firebaseUser]);
 
   const navigateTo = (route: string) => {
     if (route.startsWith('admin') && !isUserAdmin(firebaseUser)) {
-      showToast('Author Studio is restricted to the verified author account (general5242@gmail.com). Welcome to Reader Library!', 'info');
+      showToast('Author Studio is restricted to verified author accounts. Welcome to Reader Library!', 'info');
       setCurrentRoute('home');
       window.location.hash = 'home';
       return;
@@ -280,28 +314,49 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Google Auth actions
-  const handleLoginWithGoogle = async () => {
-    try {
-      const user = await loginWithGoogle();
-      showToast(`Welcome, ${user.displayName || user.email}! Your Google account is connected.`, 'success');
-    } catch (err: unknown) {
-      const errObj = err as { code?: string; message?: string };
-      if (errObj?.code !== 'auth/popup-closed-by-user') {
-        showToast(`Sign in notice: ${errObj?.message || 'Authentication unsuccessful'}`, 'info');
-      }
-    }
+  // Google Auth actions & Modal controller
+  const handleOpenAuthModal = () => {
+    setIsAuthModalOpen(true);
+  };
+
+  const handleLoginWithGoogle = handleOpenAuthModal;
+
+  const executeGoogleLogin = async () => {
+    const user = await loginWithGoogle();
+    setFirebaseUser(user);
+    const admin = isUserAdmin(user);
+    setUserRole(admin ? 'author' : 'reader');
+    showToast(`Welcome, ${user.displayName || user.email}! Your Google account is connected.`, 'success');
+    refreshData();
+  };
+
+  const handleDirectLogin = (email: string, displayName: string, role: 'admin' | 'reader') => {
+    const sessionUser: SimpleAuthUser = {
+      uid: role === 'admin' ? `author-${email.replace(/[^a-zA-Z0-9]/g, '-')}` : `reader-${Date.now()}`,
+      email,
+      displayName,
+      photoURL: null
+    };
+    localStorage.setItem('library_x_user_session', JSON.stringify({ ...sessionUser, role }));
+    setFirebaseUser(sessionUser);
+    setUserRole(role === 'admin' ? 'author' : 'reader');
+    refreshData();
   };
 
   const handleLogout = async () => {
     try {
       await logoutUser();
-      setUserRole('reader');
-      showToast('Signed out of Google account', 'info');
     } catch (err: unknown) {
-      const errObj = err as { message?: string };
-      showToast(`Sign out notice: ${errObj?.message || 'Failed to sign out'}`, 'error');
+      console.warn('Firebase logout notice:', err);
     }
+    localStorage.removeItem('library_x_user_session');
+    setFirebaseUser(null);
+    setUserRole('reader');
+    if (currentRoute === 'admin' || currentRoute.startsWith('admin')) {
+      setCurrentRoute('home');
+      window.location.hash = 'home';
+    }
+    showToast('Signed out successfully.', 'info');
   };
 
   // Bookmark handlers
@@ -664,7 +719,7 @@ export default function App() {
                 AUTHOR STUDIO ACCESS RESTRICTED
               </h2>
               <p className="font-mono-space text-xs text-zinc-400 leading-relaxed">
-                The Author Studio is strictly reserved for the authorized administrator (<span className="text-zinc-200 font-semibold">general5242@gmail.com</span>). Readers do not have publishing privileges.
+                The Author Studio is strictly reserved for the authorized author accounts (<span className="text-zinc-200 font-semibold">johnrufai242@gmail.com</span> / <span className="text-zinc-200 font-semibold">general5242@gmail.com</span>). Readers do not have publishing privileges.
               </p>
               <button
                 onClick={() => navigateTo('home')}
@@ -695,6 +750,15 @@ export default function App() {
       <NotificationToast
         toasts={toasts}
         onDismiss={handleDismissToast}
+      />
+
+      {/* Authentication Modal with Google Login, Popup Fallbacks & Fast Access */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onGoogleLogin={executeGoogleLogin}
+        onDirectLogin={handleDirectLogin}
+        onShowToast={showToast}
       />
 
     </div>
