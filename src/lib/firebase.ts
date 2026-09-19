@@ -439,6 +439,52 @@ export async function deleteCommentFromFirestore(commentId: string): Promise<voi
   }
 }
 
+// Reconcile denormalized chapter counters from the canonical chapter collection.
+// This repairs legacy book documents and keeps public book metadata accurate.
+// Scheduled chapters are intentionally not exposed to readers as chapter documents;
+// their aggregate count lives on the public book record.
+export async function reconcileBookChapterCounts(books: Book[], chapters: Chapter[]): Promise<void> {
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+    return;
+  }
+
+  const writes: Promise<void>[] = [];
+
+  for (const book of books) {
+    const bookChapters = chapters.filter((chapter) => chapter.bookId === book.id);
+    const publishedCount = bookChapters.filter((chapter) => chapter.status === 'published').length;
+    const scheduledCount = bookChapters.filter((chapter) => chapter.status === 'scheduled').length;
+    const latestPublished = [...bookChapters]
+      .filter((chapter) => chapter.status === 'published')
+      .sort((a, b) => b.chapterNumber - a.chapterNumber)[0];
+
+    const needsUpdate =
+      book.totalChapters !== bookChapters.length ||
+      book.publishedChapterCount !== publishedCount ||
+      book.scheduledChapterCount !== scheduledCount ||
+      book.latestChapterNumber !== (latestPublished?.chapterNumber || 0) ||
+      book.latestChapterTitle !== (latestPublished?.title || '');
+
+    if (!needsUpdate) continue;
+
+    writes.push(
+      saveBookToFirestore({
+        ...book,
+        totalChapters: bookChapters.length,
+        publishedChapterCount: publishedCount,
+        scheduledChapterCount: scheduledCount,
+        latestChapterNumber: latestPublished?.chapterNumber || 0,
+        latestChapterTitle: latestPublished?.title || '',
+        lastUpdatedAt: new Date().toISOString()
+      })
+    );
+  }
+
+  if (writes.length > 0) {
+    await Promise.all(writes);
+  }
+}
+
 // ---------------- CHAPTER NOTIFICATION SUBSCRIBERS ----------------
 
 export async function fetchSubscribersForBook(bookId: string): Promise<{ userId: string; userEmail: string }[]> {
