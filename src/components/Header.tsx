@@ -14,6 +14,7 @@ import {
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
+import libraryXDarkLogo from '../library x - dark theme.png';
 
 interface HeaderProps {
   currentRoute: string;
@@ -57,14 +58,17 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full bg-[#0d0d12]/95 backdrop-blur-xl border-b border-zinc-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         
-        {/* Brand Logo - pure typography without any circle containers */}
-        <div 
-          onClick={() => handleNav('home')} 
+        {/* Brand Logo */}
+        <div
+          onClick={() => handleNav('home')}
           className="cursor-pointer group flex items-center select-none"
+          aria-label="Library X home"
         >
-          <span className="font-cinzel text-xl sm:text-2xl font-bold tracking-widest text-zinc-100 block group-hover:text-white transition-colors">
-            LIBRARY X
-          </span>
+          <img
+            src={libraryXDarkLogo}
+            alt="Library X"
+            className="h-9 sm:h-10 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]"
+          />
         </div>
 
         {/* Desktop Navigation Links with dedicated icons */}
