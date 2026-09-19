@@ -58,6 +58,14 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
   const isFirstMount = useRef(true);
   const autosaveTimeoutRef = useRef<any>(null);
 
+  // A new chapter must keep ONE stable Firestore document ID for the entire
+  // editing session. Previously, every autosave generated a fresh ID, which
+  // created a new draft document for every round of typing.
+  const draftIdRef = useRef(
+    chapter?.id || `ch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  const createdAtRef = useRef(chapter?.createdAt || new Date().toISOString());
+
   const publishedDraftKey = chapter?.id
     ? `jsb_published_chapter_draft_${chapter.id}`
     : null;
@@ -138,7 +146,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     return () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
-  }, [title, subtitle, content, authorsThoughts, chapterNumber]);
+  }, [title, subtitle, content, authorsThoughts, chapterNumber, selectedBookId, scheduledDate]);
 
   const handleAutosave = async (): Promise<boolean> => {
     // Published chapters use a private browser draft while being edited.
@@ -158,7 +166,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     const readingTime = Math.max(1, Math.ceil(words / 200));
 
     const updatedChapter: Chapter = {
-      id: chapter?.id || `ch-${Date.now()}`,
+      id: draftIdRef.current,
       bookId: selectedBookId,
       chapterNumber,
       title: title.trim() || `Chapter ${chapterNumber}`,
@@ -170,7 +178,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       publishedAt: chapter?.publishedAt,
       wordCount: words,
       readingTimeMinutes: readingTime,
-      createdAt: chapter?.createdAt || new Date().toISOString(),
+      createdAt: createdAtRef.current,
       updatedAt: new Date().toISOString()
     };
 
@@ -230,7 +238,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     const isScheduling = pendingAction === 'schedule';
 
     const finalChapter: Chapter = {
-      id: chapter?.id || `ch-${Date.now()}`,
+      id: draftIdRef.current,
       bookId: selectedBookId,
       chapterNumber,
       title: title.trim() || `Chapter ${chapterNumber}`,
@@ -242,7 +250,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       publishedAt: isScheduling ? undefined : (chapter?.publishedAt || now),
       wordCount: words,
       readingTimeMinutes: readingTime,
-      createdAt: chapter?.createdAt || now,
+      createdAt: createdAtRef.current,
       updatedAt: now
     };
 
