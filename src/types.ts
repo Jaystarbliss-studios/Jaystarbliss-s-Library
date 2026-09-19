@@ -123,7 +123,7 @@ export interface LibrarySettings {
 }
 
 export type ReaderFontSize = 'sm' | 'base' | 'lg' | 'xl' | '2xl';
-export type ReaderFontFamily = 'garamond' | 'newsreader' | 'cambria' | 'sans' | 'mono';
+export type ReaderFontFamily = 'merriweather' | 'lora' | 'inter' | 'roboto' | 'garamond' | 'newsreader' | 'cambria' | 'sans' | 'mono';
 export type ReaderWidth = 'narrow' | 'standard' | 'wide';
 export type ReaderTheme = 'dark' | 'obsidian' | 'sepia' | 'light';
 
