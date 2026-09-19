@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Minus, Plus } from 'lucide-react';
 import { ReaderPreferences, ReaderFontFamily, ReaderTheme } from '../types';
 
 interface ReadingControlsProps {
@@ -60,6 +60,27 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
       pageColor: theme.page,
       textColor: theme.text
     });
+  };
+
+  const fontSizes: { value: ReaderPreferences['fontSize']; label: string }[] = [
+    { value: 'sm', label: 'Small' },
+    { value: 'base', label: 'Default' },
+    { value: 'lg', label: 'Large' },
+    { value: 'xl', label: 'Extra Large' },
+    { value: '2xl', label: 'Maximum' }
+  ];
+
+  const currentFontSizeIndex = Math.max(
+    0,
+    fontSizes.findIndex((size) => size.value === preferences.fontSize)
+  );
+
+  const changeFontSize = (direction: -1 | 1) => {
+    const nextIndex = Math.min(
+      fontSizes.length - 1,
+      Math.max(0, currentFontSizeIndex + direction)
+    );
+    onChangePreferences({ fontSize: fontSizes[nextIndex].value });
   };
 
   return (
@@ -144,6 +165,42 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
+            Text Size
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => changeFontSize(-1)}
+              disabled={currentFontSizeIndex === 0}
+              aria-label="Decrease text size"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+
+            <div className="min-w-0 flex-1 rounded-[11px] border border-[#252d39] bg-[#121923] px-4 py-2.5 text-center">
+              <div className="text-[13px] font-semibold text-[#f4f6fb]">
+                {fontSizes[currentFontSizeIndex].label}
+              </div>
+              <div className="mt-0.5 text-[10px] text-[#7f8998]">
+                Adjust reading text size
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => changeFontSize(1)}
+              disabled={currentFontSizeIndex === fontSizes.length - 1}
+              aria-label="Increase text size"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
         </section>
       </div>
