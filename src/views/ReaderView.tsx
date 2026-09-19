@@ -54,6 +54,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(checkIsBookmarked(userId, book.id));
   const contentRef = useRef<HTMLDivElement>(null);
+  const pinchStartDistanceRef = useRef<number | null>(null);
+  const pinchStartFontSizeRef = useRef<ReaderPreferences['fontSize']>('base');
+  const pinchLastIndexRef = useRef<number>(1);
 
   // Keep bookmark state in sync
   useEffect(() => {
@@ -111,20 +114,69 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     );
   };
 
-  // Font size class mapping
-  const fontSizeClasses = {
-    sm: 'text-sm leading-relaxed',
-    base: 'text-base leading-relaxed',
-    lg: 'text-lg leading-relaxed',
-    xl: 'text-xl leading-loose',
-    '2xl': 'text-2xl leading-loose'
+  // Reader typography is controlled with explicit values so every size has
+  // proportional line spacing instead of relying on fixed Tailwind leading classes.
+  const readerFontSizes: Record<ReaderPreferences['fontSize'], { size: string; lineHeight: number }> = {
+    sm: { size: '16px', lineHeight: 1.7 },
+    base: { size: '18px', lineHeight: 1.78 },
+    lg: { size: '21px', lineHeight: 1.82 },
+    xl: { size: '25px', lineHeight: 1.86 },
+    '2xl': { size: '30px', lineHeight: 1.9 }
+  };
+  const activeTypography = readerFontSizes[preferences.fontSize];
+
+  const fontSizeOrder: ReaderPreferences['fontSize'][] = ['sm', 'base', 'lg', 'xl', '2xl'];
+  const fontSizeIndex = fontSizeOrder.indexOf(preferences.fontSize);
+
+  const distanceBetweenTouches = (touches: TouchList) => {
+    const a = touches[0];
+    const b = touches[1];
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  };
+
+  const handleReaderTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 2) return;
+    pinchStartDistanceRef.current = distanceBetweenTouches(event.touches);
+    pinchStartFontSizeRef.current = preferences.fontSize;
+    pinchLastIndexRef.current = fontSizeIndex;
+  };
+
+  const handleReaderTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 2 || pinchStartDistanceRef.current === null) return;
+
+    const currentDistance = distanceBetweenTouches(event.touches);
+    const ratio = currentDistance / pinchStartDistanceRef.current;
+
+    // Each meaningful pinch step changes the reader size once, preventing
+    // tiny finger movements from jumping through several sizes.
+    let nextIndex = fontSizeOrder.indexOf(pinchStartFontSizeRef.current);
+    if (ratio >= 1.12) nextIndex += Math.min(2, Math.floor((ratio - 1) / 0.12));
+    if (ratio <= 0.88) nextIndex -= Math.min(2, Math.floor((1 - ratio) / 0.12));
+
+    nextIndex = Math.max(0, Math.min(fontSizeOrder.length - 1, nextIndex));
+
+    if (nextIndex !== pinchLastIndexRef.current) {
+      pinchLastIndexRef.current = nextIndex;
+      onChangeReaderFontSize(fontSizeOrder[nextIndex]);
+    }
+
+    event.preventDefault();
+  };
+
+  const handleReaderTouchEnd = () => {
+    pinchStartDistanceRef.current = null;
+  };
+
+  const onChangeReaderFontSize = (fontSize: ReaderPreferences['fontSize']) => {
+    if (fontSize === preferences.fontSize) return;
+    handleUpdatePreferences({ fontSize });
   };
 
   // Column width class mapping
   const widthClasses = {
-    narrow: 'max-w-2xl',
-    standard: 'max-w-3xl',
-    wide: 'max-w-4xl'
+    narrow: 'max-w-[65ch]',
+    standard: 'max-w-[75ch]',
+    wide: 'max-w-[88ch]'
   };
 
   // Font family class mapping
@@ -386,24 +438,49 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         </div>
       )}
 
-      {/* Main Literary Page Container (Interior Manuscript Layout) */}
-      <main ref={contentRef} className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <div 
-          className={`mx-auto ${widthClasses[preferences.readingWidth]} rounded-3xl p-5 sm:p-12 md:p-16 transition-all duration-300 border shadow-2xl`}
+      {/* Full-viewport reading surface. The paper no longer sits inside a
+          narrow floating card, so the chapter has the entire screen to breathe. */}
+      <main
+        ref={contentRef}
+        className="w-full min-h-[calc(100dvh-3rem)] px-0 py-0"
+        style={{ touchAction: 'pan-y' }}
+        onTouchStart={handleReaderTouchStart}
+        onTouchMove={handleReaderTouchMove}
+        onTouchEnd={handleReaderTouchEnd}
+        onTouchCancel={handleReaderTouchEnd}
+        onWheel={(event) => {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          const nextIndex = Math.max(
+            0,
+            Math.min(fontSizeOrder.length - 1, fontSizeIndex + (event.deltaY < 0 ? 1 : -1))
+          );
+          onChangeReaderFontSize(fontSizeOrder[nextIndex]);
+        }}
+      >
+        <div
+          className="w-full min-h-[calc(100dvh-3rem)] px-5 py-8 sm:px-10 sm:py-12 lg:px-16 lg:py-14 transition-colors duration-300"
           style={{
             backgroundColor: customPageColor,
             color: customTextColor,
             borderColor: isDarkPage ? 'rgba(63, 63, 70, 0.4)' : 'rgba(215, 215, 222, 0.7)'
           }}
         >
-          
           {/* Chapter Narrative Body */}
           <article
-            className={`reader-content-font prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
-            style={{ color: customTextColor, fontFamily: currentFontFamilyStyle }}
+            className={`reader-content-font prose mx-auto w-full max-w-[82ch] ${currentFontClass}`}
+            style={{
+              color: customTextColor,
+              fontFamily: currentFontFamilyStyle,
+              fontSize: activeTypography.size,
+              lineHeight: activeTypography.lineHeight,
+              ['--reader-font-family' as string]: currentFontFamilyStyle,
+              ['--reader-font-size' as string]: activeTypography.size,
+              ['--reader-line-height' as string]: activeTypography.lineHeight
+            } as React.CSSProperties}
           >
             <div
-              className="drop-cap leading-relaxed"
+              className="drop-cap"
               style={{ color: customTextColor, '--reader-text-color': customTextColor } as React.CSSProperties}
               dangerouslySetInnerHTML={{ __html: chapter.content }}
             />
