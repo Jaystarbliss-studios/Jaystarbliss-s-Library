@@ -52,7 +52,6 @@ import {
   seedInitialFirestoreData,
   fetchUserBookmarksFromFirestore,
   fetchUserReadingProgressFromFirestore,
-  fetchSubscribersForBook,
   sendChapterNotification,
   syncUserProfileToFirestore,
   checkRedirectResult,
