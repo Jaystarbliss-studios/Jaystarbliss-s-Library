@@ -189,6 +189,39 @@ export async function syncUserProfileToFirestore(user: User): Promise<{ role: 'a
   return { role, displayName };
 }
 
+// Real-time canonical catalog listeners. Firestore is the source of truth for books/chapters.
+export function listenToBooks(
+  onUpdate: (books: Book[]) => void,
+  onError?: (error: unknown) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'books'),
+    (snapshot) => {
+      onUpdate(snapshot.docs.map((item) => item.data() as Book));
+    },
+    (error) => {
+      console.error('Firestore books listener error:', error);
+      onError?.(error);
+    }
+  );
+}
+
+export function listenToChapters(
+  onUpdate: (chapters: Chapter[]) => void,
+  onError?: (error: unknown) => void
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'chapters'),
+    (snapshot) => {
+      onUpdate(snapshot.docs.map((item) => item.data() as Chapter));
+    },
+    (error) => {
+      console.error('Firestore chapters listener error:', error);
+      onError?.(error);
+    }
+  );
+}
+
 // Data synchronization with Firestore
 export async function seedInitialFirestoreData(): Promise<void> {
   // Wireframe policy: No hardcoded or AI-imputed data is seeded.
