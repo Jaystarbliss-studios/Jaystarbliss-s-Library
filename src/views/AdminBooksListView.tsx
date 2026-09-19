@@ -143,7 +143,7 @@ const AdminBookCard: React.FC<{
 
       <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono-space">
         <span className="text-zinc-400 text-[11px]">
-          {book.publishedChapterCount} Chapters • Updated {new Date(book.lastUpdatedAt).toLocaleDateString()}
+          {book.publishedChapterCount} Published{book.scheduledChapterCount > 0 ? ` • ${book.scheduledChapterCount} Scheduled` : ''} • Updated {new Date(book.lastUpdatedAt).toLocaleDateString()}
         </span>
 
         <div className="flex items-center gap-2">
