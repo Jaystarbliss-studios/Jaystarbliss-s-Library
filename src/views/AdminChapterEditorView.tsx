@@ -19,7 +19,7 @@ interface AdminChapterEditorViewProps {
   books: Book[];
   chapter?: Chapter | null;
   defaultBookId?: string;
-  onSaveChapter: (chapter: Chapter) => void;
+  onSaveChapter: (chapter: Chapter) => Promise<void>;
   onCancel: () => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -76,7 +76,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     };
   }, [title, subtitle, content, authorsThoughts, chapterNumber]);
 
-  const handleAutosave = () => {
+  const handleAutosave = async () => {
     if (!title.trim() && !content.trim()) return;
     setAutosaveState('saving');
 
@@ -101,13 +101,24 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    onSaveChapter(updatedChapter);
-    setAutosaveState('saved');
+    try {
+      await onSaveChapter(updatedChapter);
+      setAutosaveState('saved');
+    } catch (error) {
+      console.error('Chapter autosave failed:', error);
+      setAutosaveState('error');
+    }
   };
 
-  const handleManualSaveDraft = () => {
-    handleAutosave();
-    onShowToast('Draft saved successfully to library database', 'success');
+  const handleManualSaveDraft = async () => {
+    try {
+      await handleAutosave();
+      if (autosaveState !== 'error') {
+        onShowToast('Draft saved successfully to library database', 'success');
+      }
+    } catch (error) {
+      onShowToast('Draft could not be saved to the cloud database.', 'error');
+    }
   };
 
   const handleInitiatePublish = () => {
@@ -201,12 +212,12 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
               <span>•</span>
               <span className="flex items-center gap-1">
                 <span className={`w-2 h-2 rounded-full ${
-                  autosaveState === 'saved' ? 'bg-emerald-500' : autosaveState === 'saving' ? 'bg-amber-500 animate-pulse' : 'bg-zinc-500'
+                  autosaveState === 'saved' ? 'bg-emerald-500' : autosaveState === 'saving' ? 'bg-amber-500 animate-pulse' : autosaveState === 'error' ? 'bg-red-500' : 'bg-zinc-500'
                 }`} />
                 <span>
                   {autosaveState === 'saved' && 'Draft Saved'}
                   {autosaveState === 'saving' && 'Saving...'}
-                  {autosaveState === 'unsaved' && 'Unsaved changes'}
+                  {autosaveState === 'unsaved' && 'Unsaved changes'}\n                  {autosaveState === 'error' && 'Cloud save failed'}
                 </span>
               </span>
             </div>
