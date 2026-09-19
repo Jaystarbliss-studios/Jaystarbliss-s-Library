@@ -171,6 +171,7 @@ export const AdminBookEditorView: React.FC<AdminBookEditorViewProps> = ({
       isFeatured,
       totalChapters: book?.totalChapters || 0,
       publishedChapterCount: book?.publishedChapterCount || 0,
+      scheduledChapterCount: book?.scheduledChapterCount || 0,
       latestChapterNumber: book?.latestChapterNumber || 0,
       latestChapterTitle: book?.latestChapterTitle || '',
       createdAt: book?.createdAt || now,
