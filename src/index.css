@@ -63,6 +63,12 @@
   font-family: var(--font-mono);
 }
 
+/* Reader-selected font must override formatting carried inside pasted manuscript HTML. */
+.reader-content-font,
+.reader-content-font * {
+  font-family: inherit !important;
+}
+
 /* Literary Editorial Drop Cap */
 .drop-cap::first-letter {
   font-family: var(--font-cambria);
