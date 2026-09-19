@@ -14,6 +14,7 @@ import {
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
+import { InstallAppButton } from './InstallAppButton';
 import libraryXDarkLogo from '../library x - dark theme.png';
 
 interface HeaderProps {
@@ -98,8 +99,8 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Right Utility: Google Auth & Studio */}
-        <div className="hidden lg:flex items-center gap-3">
+        {/* Right Utility: Install, Google Auth & Studio */}
+        <div className="hidden lg:flex items-center gap-3">\n          <InstallAppButton />
           
           {/* User Account / Auth */}
           {firebaseUser ? (
@@ -180,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">
+        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">\n          <InstallAppButton className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100 text-xs font-mono-space tracking-wider" />
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
             const Icon = link.icon;
