@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Book, Chapter, Bookmark, ReadingProgress, UserProfile, LibraryFont } from './types';
 import {
   getBookBySlug,
@@ -445,7 +445,25 @@ export default function App() {
     refreshData();
   };
 
-  // Current entity lookups
+  // Public chapter counts are derived from the same live Firestore chapter
+  // listener used to render readable chapters. This prevents stale book
+  // metadata from making shelves display an old published count.
+  const displayBooks = useMemo(() => {
+    return books.map((book) => {
+      const bookChapters = chapters.filter((chapter) => chapter.bookId === book.id);
+      const publishedCount = bookChapters.filter((chapter) => chapter.status === 'published').length;
+
+      return {
+        ...book,
+        publishedChapterCount: isAdmin ? publishedCount : publishedCount,
+        scheduledChapterCount: isAdmin
+          ? bookChapters.filter((chapter) => chapter.status === 'scheduled').length
+          : (book.scheduledChapterCount || 0)
+      };
+    });
+  }, [books, chapters, isAdmin]);
+
+// Current entity lookups
   const activeBook = displayBooks.find((b) => b.slug === selectedBookSlug) || displayBooks[0];
   const activeBookChapters = activeBook ? chapters.filter((c) => c.bookId === activeBook.id) : [];
   const activeChapter = activeBookChapters.find((c) => c.chapterNumber === selectedChapterNumber) || activeBookChapters[0];
