@@ -59,9 +59,11 @@ import {
   fetchSubscribersForBook,
   syncUserProfileToFirestore,
   checkRedirectResult,
-  SimpleAuthUser
+  SimpleAuthUser,
+  listenToBooks,
+  listenToChapters
 } from './lib/firebase';
-import { syncBookmarksWithFirestore, syncProgressWithFirestore, saveBooks, saveChapters } from './lib/storage';
+import { syncBookmarksWithFirestore, syncProgressWithFirestore } from './lib/storage';
 
 const DEFAULT_USER_ID = 'library-x-reader';
 
@@ -151,21 +153,7 @@ export default function App() {
       }
     });
 
-    // 2. Restore cached local user session if present
-    const cachedSessionStr = localStorage.getItem('library_x_user_session');
-    if (cachedSessionStr) {
-      try {
-        const cached = JSON.parse(cachedSessionStr);
-        if (cached && cached.email) {
-          setFirebaseUser(cached);
-          const admin = isUserAdmin(cached);
-          setUserRole(admin ? 'author' : 'reader');
-        }
-      } catch (e) {
-        console.warn('Could not parse cached session:', e);
-      }
-    }
-
+    // 2. Firebase Auth is the only session source. Never restore a local/fake account.
     // 3. Listen to Firebase Auth state
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -211,37 +199,48 @@ export default function App() {
           console.warn('Could not sync reading progress from Firestore:', err);
         }
       } else {
-        // If there's no active cached local session, reset to reader
-        const cached = localStorage.getItem('library_x_user_session');
-        if (!cached) {
-          setFirebaseUser(null);
-          setUserRole('reader');
+        setFirebaseUser(null);
+        setUserRole('reader');
+        if (currentRoute === 'admin' || currentRoute.startsWith('admin')) {
+          setCurrentRoute('home');
+          window.location.hash = 'home';
         }
       }
     });
 
-    // Cloud seed & fetch initial canonical catalog
-    async function initFirestoreCatalog() {
-      try {
-        await seedInitialFirestoreData();
-        const cloudBooks = await fetchBooksFromFirestore();
-        const cloudChapters = await fetchChaptersFromFirestore();
-        if (cloudBooks && cloudBooks.length > 0) {
-          saveBooks(cloudBooks);
-        }
-        if (cloudChapters && cloudChapters.length > 0) {
-          saveChapters(cloudChapters);
-        }
-        refreshData();
+    // Firestore is the canonical source for books and chapters.
+    // Real-time listeners keep every public view synchronized across browsers/devices.
+    let unsubscribeBooks = () => {};
+    let unsubscribeChapters = () => {};
+
+    try {
+      unsubscribeBooks = listenToBooks((cloudBooks) => {
+        const publicBooks = cloudBooks.filter((book) => book.visibility === 'published');
+        setBooks(isUserAdmin(auth.currentUser) ? cloudBooks : publicBooks);
         setIsCloudConnected(true);
-      } catch (err) {
-        console.warn('Using local canon fallback:', err);
-      }
+      }, (error) => {
+        console.error('Books realtime sync failed:', error);
+        setIsCloudConnected(false);
+      });
+
+      unsubscribeChapters = listenToChapters((cloudChapters) => {
+        const publicChapters = cloudChapters.filter((chapter) => chapter.status === 'published');
+        setChapters(isUserAdmin(auth.currentUser) ? cloudChapters : publicChapters);
+        setIsCloudConnected(true);
+      }, (error) => {
+        console.error('Chapters realtime sync failed:', error);
+        setIsCloudConnected(false);
+      });
+    } catch (err) {
+      console.error('Could not initialize Firestore catalog listeners:', err);
+      setIsCloudConnected(false);
     }
 
-    initFirestoreCatalog();
-
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeBooks();
+      unsubscribeChapters();
+    };
   }, [refreshData, showToast]);
 
   // Initial load and periodic autonomous publishing evaluator (every 30s)
@@ -330,26 +329,12 @@ export default function App() {
     refreshData();
   };
 
-  const handleDirectLogin = (email: string, displayName: string, role: 'admin' | 'reader') => {
-    const sessionUser: SimpleAuthUser = {
-      uid: role === 'admin' ? `author-${email.replace(/[^a-zA-Z0-9]/g, '-')}` : `reader-${Date.now()}`,
-      email,
-      displayName,
-      photoURL: null
-    };
-    localStorage.setItem('library_x_user_session', JSON.stringify({ ...sessionUser, role }));
-    setFirebaseUser(sessionUser);
-    setUserRole(role === 'admin' ? 'author' : 'reader');
-    refreshData();
-  };
-
   const handleLogout = async () => {
     try {
       await logoutUser();
     } catch (err: unknown) {
       console.warn('Firebase logout notice:', err);
     }
-    localStorage.removeItem('library_x_user_session');
     setFirebaseUser(null);
     setUserRole('reader');
     if (currentRoute === 'admin' || currentRoute.startsWith('admin')) {
@@ -374,8 +359,9 @@ export default function App() {
   // Chapter editing & admin actions
   const handleSaveChapter = async (ch: Chapter) => {
     const isNewPublish = ch.status === 'published';
-    saveChapter(ch);
-    refreshData();
+    try {
+      await saveChapter(ch);
+      refreshData();
 
     // Check for subscribers to send Google email alert notification
     if (isNewPublish) {
@@ -387,22 +373,32 @@ export default function App() {
       } catch (err) {
         console.warn('Subscriber lookup warning:', err);
       }
+      }
+    } catch (err) {
+      showToast('Chapter could not be saved. The cloud database did not confirm the change.', 'error');
+      throw err;
     }
   };
 
-  const handleSaveBook = (b: Book) => {
-    saveBook(b);
-    refreshData();
-    setAdminTab('books');
+  const handleSaveBook = async (b: Book) => {
+    try {
+      await saveBook(b);
+      refreshData();
+      setAdminTab('books');
+      showToast(`Manuscript "${b.title}" saved successfully to the cloud library.`, 'success');
+    } catch (err) {
+      showToast('Book could not be saved. The cloud database did not confirm the change.', 'error');
+      throw err;
+    }
   };
 
-  const handleDeleteChapter = (chId: string) => {
-    deleteChapter(chId);
+  const handleDeleteChapter = async (chId: string) => {
+    await deleteChapter(chId);
     refreshData();
   };
 
   const handlePublishNow = async (chId: string) => {
-    publishScheduledNow(chId);
+    await publishScheduledNow(chId);
     refreshData();
     showToast('Chapter published immediately to all readers', 'success');
 
@@ -419,8 +415,8 @@ export default function App() {
     }
   };
 
-  const handleCancelSchedule = (chId: string) => {
-    cancelScheduledRelease(chId);
+  const handleCancelSchedule = async (chId: string) => {
+    await cancelScheduledRelease(chId);
     refreshData();
   };
 
@@ -757,7 +753,6 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onGoogleLogin={executeGoogleLogin}
-        onDirectLogin={handleDirectLogin}
         onShowToast={showToast}
       />
 
