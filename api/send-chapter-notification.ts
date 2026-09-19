@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recipients = Array.from(new Set(
       bookmarkSnap.docs
         .map((doc) => String(doc.data().userEmail || '').trim().toLowerCase())
-        .filter((email) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))
+        .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     ));
 
     if (recipients.length === 0) {
@@ -107,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const resend = new Resend(resendApiKey);
     const appUrl = process.env.APP_URL || 'https://library-x.vercel.app';
     const readerUrl = chapter.bookId
-      ? `${appUrl.replace(/\\/$/, '')}/#/reader/${encodeURIComponent(book.slug || chapter.bookId)}/${chapter.chapterNumber}`
+      ? `${appUrl.replace(/\/$/, '')}/#/reader/${encodeURIComponent(book.slug || chapter.bookId)}/${chapter.chapterNumber}`
       : appUrl;
 
     const subject = `New chapter: ${book.title || 'Library X'} — Chapter ${chapter.chapterNumber}`;
