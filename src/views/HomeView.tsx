@@ -117,12 +117,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-3">
-              <h1 className="font-cinzel text-3xl sm:text-5xl font-bold tracking-wide text-white uppercase">
-                LIBRARY X
-              </h1>
-              <p className="font-mono-space text-xs sm:text-sm text-zinc-300 max-w-xl leading-relaxed">
-                Live updates synchronized directly to your personal shelf, the curated serial releases.
-              </p>
             </div>
 
             {/* Quick action for author studio (strictly visible only to verified admin) */}
