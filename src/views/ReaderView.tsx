@@ -140,6 +140,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     mono: 'font-mono-space'
   };
 
+  const currentFontFamilyStyle: React.CSSProperties['fontFamily'] = {
+    merriweather: '"Merriweather", Georgia, serif',
+    lora: '"Lora", Georgia, serif',
+    inter: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    roboto: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    garamond: '"EB Garamond", Georgia, serif',
+    newsreader: '"Newsreader", Georgia, serif',
+    cambria: 'Cambria, Georgia, serif',
+    sans: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    mono: '"Space Mono", monospace'
+  }[preferences.fontFamily] || 'Merriweather, Georgia, serif';
+
   // Theme styling mapping (softened, easy on reader eyes)
   const themeStyles = {
     light: {
@@ -225,38 +237,39 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           color: isDarkPage ? '#f4f4f5' : '#18181b'
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-15 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-12 sm:h-14 flex items-center justify-between gap-2">
           
           {/* Left: Back to Book */}
           <button
             onClick={onBackToBook}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-space tracking-wider hover:opacity-80 transition-all active:scale-95"
+            className="shrink-0 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-95"
+            aria-label="Back to book"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">TABLE OF CONTENTS</span>
-            <span className="sm:hidden">TOC</span>
           </button>
 
           {/* Center: Current Chapter Title */}
-          <div className="text-center truncate px-3 max-w-[200px] sm:max-w-md">
-            <span className="font-cinzel text-xs sm:text-sm font-bold tracking-wider block truncate">
+          <div className="min-w-0 flex-1 text-center truncate px-1 sm:px-3 max-w-[190px] sm:max-w-md mx-auto">
+            <span className="font-cinzel text-[10px] sm:text-xs font-bold tracking-wide block truncate">
               CH. {chapter.chapterNumber}: {chapter.title}
             </span>
-            <span className="font-mono-space text-[10px] opacity-60 tracking-widest uppercase block truncate">
-              {book.title}
-            </span>
+            {chapter.subtitle && (
+              <span className="font-cambria text-[9px] sm:text-[10px] italic opacity-65 block truncate">
+                {chapter.subtitle}
+              </span>
+            )}
           </div>
 
           {/* Right: Quick Chapter Switcher & Reader Preferences */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
             
-            {/* Prev / Next Chapter Buttons */}
-            <div className={`flex items-center rounded-xl border overflow-hidden p-0.5 ${currentThemeStyle.buttonBg}`}>
+            {/* Compact chapter navigation */}
+            <div className="flex items-center gap-0.5 shrink-0">
               <button
                 disabled={!prevChapter}
                 onClick={() => prevChapter && onNavigateChapter(prevChapter.chapterNumber)}
-                className={`p-2 rounded-lg transition-colors ${
-                  prevChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-30 cursor-not-allowed'
+                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                  prevChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-25 cursor-not-allowed'
                 }`}
                 title={prevChapter ? `Previous: ${prevChapter.title}` : 'First chapter'}
                 aria-label="Previous Chapter"
@@ -265,18 +278,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
               </button>
 
               <button
-                onClick={() => setShowChapterDrawer(!showChapterDrawer)}
-                className="px-2.5 py-1 text-[11px] font-mono-space font-medium hover:bg-black/10 dark:hover:bg-white/10 rounded-lg transition-colors"
-                title="Select chapter from list"
-              >
-                {chapter.chapterNumber} / {publishedChapters.length}
-              </button>
-
-              <button
                 disabled={!nextChapter}
                 onClick={() => nextChapter && onNavigateChapter(nextChapter.chapterNumber)}
-                className={`p-2 rounded-lg transition-colors ${
-                  nextChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-30 cursor-not-allowed'
+                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                  nextChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-25 cursor-not-allowed'
                 }`}
                 title={nextChapter ? `Next: ${nextChapter.title}` : 'Latest released chapter'}
                 aria-label="Next Chapter"
@@ -384,7 +389,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       {/* Main Literary Page Container (Interior Manuscript Layout) */}
       <main ref={contentRef} className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div 
-          className={`mx-auto ${widthClasses[preferences.readingWidth]} rounded-3xl p-6 sm:p-12 md:p-16 transition-all duration-300 border shadow-2xl`}
+          className={`mx-auto ${widthClasses[preferences.readingWidth]} rounded-3xl p-5 sm:p-12 md:p-16 transition-all duration-300 border shadow-2xl`}
           style={{
             backgroundColor: customPageColor,
             color: customTextColor,
@@ -392,73 +397,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           }}
         >
           
-          {/* Interior Book Header Structure */}
-          <div 
-            className="pb-8 mb-8 border-b text-center space-y-4"
-            style={{ borderColor: isDarkPage ? 'rgba(63, 63, 70, 0.35)' : 'rgba(215, 215, 222, 0.65)' }}
-          >
-            
-            {/* Publisher / Archival Tagline */}
-            <div 
-              className="font-mono-space text-[10px] sm:text-xs tracking-[0.25em] uppercase opacity-60"
-            >
-              LIBRARY X • OFFICIAL SERIALIZED RELEASE
-            </div>
-
-            {/* Book Title */}
-            <h2 className="font-cinzel text-xl sm:text-2xl font-black tracking-widest uppercase">
-              {book.title}
-            </h2>
-
-            {/* Chapter Header Block */}
-            <div className="pt-2 space-y-2">
-              <div 
-                className="inline-block px-3.5 py-1 font-mono-space text-xs font-bold tracking-widest uppercase rounded-full border"
-                style={{
-                  backgroundColor: isDarkPage ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
-                  borderColor: isDarkPage ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                CHAPTER {chapter.chapterNumber}
-              </div>
-              <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-tight uppercase">
-                {chapter.title}
-              </h1>
-              {chapter.subtitle && (
-                <p className="font-cambria text-base sm:text-lg italic opacity-80 max-w-xl mx-auto">
-                  {chapter.subtitle}
-                </p>
-              )}
-            </div>
-
-            {/* Manuscript Metadata */}
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[11px] font-mono-space opacity-65 pt-2">
-              <span>{chapter.wordCount} WORDS</span>
-              <span>•</span>
-              <span>APPROX. {chapter.readingTimeMinutes} MIN READ</span>
-              {chapter.publishedAt && (
-                <>
-                  <span>•</span>
-                  <span>{new Date(chapter.publishedAt).toLocaleDateString()}</span>
-                </>
-              )}
-              {isBookmarked && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 text-amber-500 font-semibold">
-                    <Bell className="w-3 h-3" />
-                    SHELF NOTIFICATIONS ON
-                  </span>
-                </>
-              )}
-            </div>
-
-          </div>
-
           {/* Chapter Narrative Body */}
           <article
             className={`prose max-w-none [&_*]:!text-inherit ${fontSizeClasses[preferences.fontSize]} ${currentFontClass} space-y-5`}
-            style={{ color: customTextColor }}
+            style={{ color: customTextColor, fontFamily: currentFontFamilyStyle }}
           >
             <div
               className="drop-cap leading-relaxed"
