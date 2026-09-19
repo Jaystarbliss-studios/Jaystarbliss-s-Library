@@ -56,7 +56,8 @@ import {
   syncUserProfileToFirestore,
   checkRedirectResult,
   listenToBooks,
-  listenToChapters
+  listenToChapters,
+  reconcileBookChapterCounts
 } from './lib/firebase';
 import { syncBookmarksWithFirestore, syncProgressWithFirestore } from './lib/storage';
 
@@ -445,7 +446,7 @@ export default function App() {
   };
 
   // Current entity lookups
-  const activeBook = books.find((b) => b.slug === selectedBookSlug) || books[0];
+  const activeBook = displayBooks.find((b) => b.slug === selectedBookSlug) || displayBooks[0];
   const activeBookChapters = activeBook ? chapters.filter((c) => c.bookId === activeBook.id) : [];
   const activeChapter = activeBookChapters.find((c) => c.chapterNumber === selectedChapterNumber) || activeBookChapters[0];
 
@@ -464,6 +465,33 @@ export default function App() {
   const scheduledPendingCount = chapters.filter((c) => c.status === 'scheduled').length;
 
   const isAdmin = isUserAdmin(firebaseUser);
+
+  // Public chapter counts are derived from the same live Firestore chapter
+  // listener used to render readable chapters. This prevents stale book
+  // metadata from making shelves display an old published count.
+  const displayBooks = useMemo(() => {
+    return books.map((book) => {
+      const bookChapters = chapters.filter((chapter) => chapter.bookId === book.id);
+      const publishedCount = bookChapters.filter((chapter) => chapter.status === 'published').length;
+
+      return {
+        ...book,
+        publishedChapterCount: isAdmin ? publishedCount : publishedCount,
+        scheduledChapterCount: isAdmin
+          ? bookChapters.filter((chapter) => chapter.status === 'scheduled').length
+          : (book.scheduledChapterCount || 0)
+      };
+    });
+  }, [books, chapters, isAdmin]);
+
+  // Repair legacy/stale denormalized counters while an authorized author is
+  // online. Readers continue to receive only published chapter documents.
+  useEffect(() => {
+    if (!isAdmin || books.length === 0) return;
+    reconcileBookChapterCounts(books, chapters).catch((error) => {
+      console.warn('Could not reconcile live book chapter counts:', error);
+    });
+  }, [books, chapters, isAdmin]);
 
   const currentUserProfile: UserProfile = {
     id: activeUserId,
@@ -518,7 +546,7 @@ export default function App() {
         {/* 2. PUBLIC HOMEPAGE */}
         {currentRoute === 'home' && (
           <HomeView
-            allBooks={books}
+            allBooks={displayBooks}
             latestUpdates={latestUpdates}
             progressMap={progressMap}
             bookmarksMap={bookmarksMap}
@@ -535,7 +563,7 @@ export default function App() {
         {/* 3. PUBLIC LIBRARY CATALOGUE */}
         {currentRoute === 'library' && (
           <LibraryView
-            books={books}
+            books={displayBooks}
             progressMap={progressMap}
             bookmarksMap={bookmarksMap}
             onToggleBookmark={handleToggleBookmark}
