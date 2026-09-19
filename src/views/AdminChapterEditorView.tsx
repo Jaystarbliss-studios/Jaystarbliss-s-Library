@@ -132,7 +132,7 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
     setShowPublishModal(true);
   };
 
-  const handleConfirmPublishOrSchedule = () => {
+  const handleConfirmPublishOrSchedule = async () => {
     setShowPublishModal(false);
 
     const cleanText = (content || '').replace(/<[^>]*>?/gm, ' ');
@@ -159,15 +159,19 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       updatedAt: now
     };
 
-    onSaveChapter(finalChapter);
-    setStatus(finalChapter.status);
-
-    onShowToast(
-      isScheduling
-        ? `Chapter ${chapterNumber} scheduled for daily release on ${new Date(scheduledDate).toLocaleString()} (WAT)`
-        : `Chapter ${chapterNumber} — "${title}" published immediately to the public library!`,
-      'success'
-    );
+    try {
+      await onSaveChapter(finalChapter);
+      setStatus(finalChapter.status);
+      onShowToast(
+        isScheduling
+          ? `Chapter ${chapterNumber} scheduled for daily release on ${new Date(scheduledDate).toLocaleString()} (WAT)`
+          : `Chapter ${chapterNumber} — "${title}" published to the public library after cloud confirmation.`,
+        'success'
+      );
+    } catch (error) {
+      console.error('Chapter publication failed:', error);
+      onShowToast('Chapter was not published because the cloud database did not confirm the save.', 'error');
+    }
   };
 
   // Word count & estimate
