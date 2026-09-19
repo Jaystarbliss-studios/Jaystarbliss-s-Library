@@ -88,7 +88,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const editor = editorRef.current;
     if (!editor) return;
 
-    if (value !== lastExternalValueRef.current && value !== editor.innerHTML) {
+    // Hydrate the editor from the controlled value on first mount, and whenever
+    // Firestore supplies a different chapter document. The previous guard used
+    // lastExternalValueRef as a gate, which was initialized to the incoming
+    // value and therefore prevented the first Firestore chapter content from
+    // ever being written into the contenteditable surface.
+    if (editor.innerHTML !== (value || '')) {
       const wasFocused = document.activeElement === editor;
       editor.innerHTML = value || '';
       if (!wasFocused) editor.scrollTop = 0;
