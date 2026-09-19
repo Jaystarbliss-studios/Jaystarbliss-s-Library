@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Book, Chapter, Bookmark, ReadingProgress, UserProfile, LibraryFont } from './types';
 import {
-  getBooks,
-  getChapters,
   getBookBySlug,
   getChapter,
   getBookmarks,
