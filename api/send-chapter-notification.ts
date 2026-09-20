@@ -104,12 +104,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // reader explicitly turned them off.
       if (bookmark.emailNotificationsEnabled === false) continue;
 
+      // The bookmark itself is the book-level subscription record. Use the
+      // authenticated Google account email as the authoritative destination
+      // whenever a userId is available, so an old/missing/stale userEmail field
+      // can never make an active shelf subscription look unsubscribed.
       let email = String(bookmark.userEmail || '').trim().toLowerCase();
 
-      if (!email && bookmark.userId) {
+      if (bookmark.userId) {
         try {
           const userRecord = await getAuth(adminApp).getUser(bookmark.userId);
-          email = String(userRecord.email || '').trim().toLowerCase();
+          const accountEmail = String(userRecord.email || '').trim().toLowerCase();
+          if (accountEmail) email = accountEmail;
         } catch (lookupError) {
           console.warn('Could not recover bookmark email:', bookmark.userId, lookupError);
         }
