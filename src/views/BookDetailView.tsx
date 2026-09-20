@@ -18,7 +18,7 @@ import {
   Bell,
   BellOff
 } from 'lucide-react';
-import { isBookmarked as checkIsBookmarked, toggleBookmark } from '../lib/storage';
+import { isBookmarked as checkIsBookmarked, toggleBookmark, updateBookmarkNotification } from '../lib/storage';
 
 interface BookDetailViewProps {
   book: Book;
@@ -46,9 +46,15 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   isAdmin = false
 }) => {
   const [isBookmarked, setIsBookmarked] = useState(checkIsBookmarked(userId, book.id));
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [coverError, setCoverError] = useState(false);
 
   const resumeChapterNumber = progress?.lastChapterNumber || 1;
+
+  React.useEffect(() => {
+    setIsBookmarked(checkIsBookmarked(userId, book.id));
+    setNotificationsEnabled(true);
+  }, [userId, book.id]);
   const hasStarted = !!progress && progress.lastChapterNumber > 0;
 
   const handleToggleBookmark = () => {
@@ -58,6 +64,36 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
       bookmarkedNow
         ? `Added "${book.title}" to My Shelf • Email alerts active`
         : `Removed "${book.title}" from My Shelf`,
+      'info'
+    );
+  };
+
+  const handleToggleNotifications = () => {
+    if (!isBookmarked) {
+      const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
+      setIsBookmarked(bookmarkedNow);
+      setNotificationsEnabled(bookmarkedNow);
+      onShowToast(
+        bookmarkedNow
+          ? 'Added to My Shelf. Chapter email notifications are now active.'
+          : 'Book removed from My Shelf.',
+        'success'
+      );
+      return;
+    }
+
+    const nextEnabled = !notificationsEnabled;
+    const updated = updateBookmarkNotification(userId, book.id, nextEnabled);
+    if (!updated) {
+      onShowToast('Could not update this book subscription. Please try again.', 'error');
+      return;
+    }
+
+    setNotificationsEnabled(nextEnabled);
+    onShowToast(
+      nextEnabled
+        ? 'Chapter email notifications are now active for this book.'
+        : 'Chapter email notifications are muted for this book.',
       'info'
     );
   };
@@ -142,15 +178,41 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
               )}
             </div>
 
-            {/* Shelf Notification Explanation */}
-            <div className="w-full max-w-[320px] mt-3 p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80 text-[11px] font-mono-space text-zinc-400 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                {isBookmarked
-                  ? 'Notifications active for new chapters'
-                  : 'Add to shelf to receive Google email notifications on new chapters'}
+            {/* Book-level chapter notification subscription */}
+            <button
+              type="button"
+              onClick={handleToggleNotifications}
+              className={`w-full max-w-[320px] mt-3 p-3 rounded-xl border text-left flex items-center gap-3 transition-all active:scale-[0.99] ${
+                notificationsEnabled && isBookmarked
+                  ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
+                  : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
+              }`}
+              title={notificationsEnabled && isBookmarked ? 'Mute chapter email notifications' : 'Enable chapter email notifications'}
+              aria-label={notificationsEnabled && isBookmarked ? 'Mute chapter email notifications' : 'Enable chapter email notifications'}
+            >
+              {notificationsEnabled && isBookmarked ? (
+                <Bell className="w-4 h-4 text-amber-400 shrink-0" />
+              ) : (
+                <BellOff className="w-4 h-4 text-zinc-500 shrink-0" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-mono-space text-zinc-200 font-semibold">
+                  {notificationsEnabled && isBookmarked ? 'CHAPTER ALERTS ACTIVE' : 'TURN ON CHAPTER ALERTS'}
+                </span>
+                <span className="block mt-0.5 text-[10px] font-sans text-zinc-400">
+                  {currentUser?.email
+                    ? `Email me whenever a new chapter is published • ${currentUser.email}`
+                    : 'Sign in with Google to receive email notifications for this book'}
+                </span>
               </span>
-            </div>
+              <span className={`shrink-0 text-[9px] font-mono-space font-bold px-2 py-1 rounded-full border ${
+                notificationsEnabled && isBookmarked
+                  ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                  : 'text-zinc-500 bg-zinc-900 border-zinc-700'
+              }`}>
+                {notificationsEnabled && isBookmarked ? 'ON' : 'OFF'}
+              </span>
+            </button>
           </div>
 
           {/* Right: Book Details & Stats */}
