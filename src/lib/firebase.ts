@@ -490,18 +490,24 @@ export async function reconcileBookChapterCounts(books: Book[], chapters: Chapte
 export async function fetchSubscribersForBook(bookId: string): Promise<{ userId: string; userEmail: string }[]> {
   const path = 'bookmarks';
   try {
-    const q = query(
-      collection(db, path),
-      where('bookId', '==', bookId),
-      where('emailNotificationsEnabled', '==', true)
-    );
+    // A bookmark is the book-level subscription. Query by book only so this
+    // remains index-free and treat missing notification flags as enabled for
+    // legacy bookmarks created before the explicit subscription field existed.
+    const q = query(collection(db, path), where('bookId', '==', bookId));
     const snapshot = await getDocs(q);
+
     return snapshot.docs
       .map(doc => {
         const data = doc.data() as Bookmark;
-        return { userId: data.userId, userEmail: data.userEmail || '' };
+        return {
+          userId: data.userId,
+          userEmail: data.userEmail || ''
+        };
       })
-      .filter(sub => Boolean(sub.userEmail));
+      .filter((subscriber, index) => {
+        const data = snapshot.docs[index].data() as Bookmark;
+        return data.emailNotificationsEnabled !== false && Boolean(subscriber.userEmail);
+      });
   } catch (error) {
     console.warn('Could not query subscribers from Firestore:', error);
     return [];
