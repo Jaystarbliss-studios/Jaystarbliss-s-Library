@@ -543,10 +543,10 @@ export async function syncLocalBookmarksToFirestore(userId: string, knownCloudBo
   if (!auth.currentUser || auth.currentUser.uid !== userId) return;
 
   const localBookmarks = getBookmarks(userId);
-  const cloudIds = new Set(knownCloudBookmarks.map((bookmark) => bookmark.id));
+  const cloudBookIds = new Set(knownCloudBookmarks.map((bookmark) => bookmark.bookId));
 
   for (const bookmark of localBookmarks) {
-    if (cloudIds.has(bookmark.id)) continue;
+    if (cloudBookIds.has(bookmark.bookId)) continue;
 
     const normalizedBookmark: Bookmark = {
       ...bookmark,
