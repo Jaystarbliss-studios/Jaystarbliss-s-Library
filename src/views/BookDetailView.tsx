@@ -18,7 +18,7 @@ import {
   Bell,
   BellOff
 } from 'lucide-react';
-import { isBookmarked as checkIsBookmarked, toggleBookmark, updateBookmarkNotification } from '../lib/storage';
+import { isBookmarked as checkIsBookmarked, toggleBookmark, updateBookmarkNotification, getBookmarks } from '../lib/storage';
 
 interface BookDetailViewProps {
   book: Book;
@@ -53,7 +53,8 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
 
   React.useEffect(() => {
     setIsBookmarked(checkIsBookmarked(userId, book.id));
-    setNotificationsEnabled(true);
+    const bookmark = getBookmarks(userId).find((item) => item.bookId === book.id);
+    setNotificationsEnabled(bookmark?.emailNotificationsEnabled !== false);
   }, [userId, book.id]);
   const hasStarted = !!progress && progress.lastChapterNumber > 0;
 
