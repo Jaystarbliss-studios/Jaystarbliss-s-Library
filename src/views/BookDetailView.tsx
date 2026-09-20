@@ -70,6 +70,11 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   };
 
   const handleToggleNotifications = () => {
+    if (!currentUser?.uid || !currentUser.email) {
+      onShowToast('Sign in with Google to activate chapter email notifications for this book.', 'info');
+      return;
+    }
+
     if (!isBookmarked) {
       const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
       setIsBookmarked(bookmarkedNow);
