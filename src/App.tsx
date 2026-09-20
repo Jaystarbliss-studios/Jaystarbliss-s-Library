@@ -60,7 +60,7 @@ import {
   listenToChapters,
   reconcileBookChapterCounts
 } from './lib/firebase';
-import { syncBookmarksWithFirestore, syncProgressWithFirestore } from './lib/storage';
+import { syncBookmarksWithFirestore, syncProgressWithFirestore, syncLocalBookmarksToFirestore } from './lib/storage';
 
 const DEFAULT_USER_ID = 'library-x-reader';
 
@@ -185,15 +185,26 @@ export default function App() {
           console.warn('User profile sync notice:', err);
         }
 
-        // Fetch user's bookmarks from Cloud Firestore
+        // Firestore is the source of truth for subscriptions. First recover any
+        // older local shelf bookmarks that were created before cloud sync was
+        // reliable, then fetch the cloud shelf again so the notification state
+        // shown in the UI exactly matches what the server can see.
         try {
           const cloudBms = await fetchUserBookmarksFromFirestore(user.uid);
           if (cloudBms && cloudBms.length > 0) {
             syncBookmarksWithFirestore(cloudBms);
-            refreshData();
           }
+
+          await syncLocalBookmarksToFirestore(user.uid, cloudBms || []);
+
+          const syncedCloudBms = await fetchUserBookmarksFromFirestore(user.uid);
+          if (syncedCloudBms && syncedCloudBms.length > 0) {
+            syncBookmarksWithFirestore(syncedCloudBms);
+          }
+
+          refreshData();
         } catch (err) {
-          console.warn('Could not sync bookmarks from Firestore:', err);
+          console.warn('Could not sync bookmarks/subscriptions with Firestore:', err);
         }
 
         // Fetch user's reading progress from Cloud Firestore
