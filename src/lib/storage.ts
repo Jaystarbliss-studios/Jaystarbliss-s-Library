@@ -539,6 +539,30 @@ export function toggleBookmark(userId: string, book: Book, userEmail?: string): 
   }
 }
 
+export async function syncLocalBookmarksToFirestore(userId: string, knownCloudBookmarks: Bookmark[] = []): Promise<void> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) return;
+
+  const localBookmarks = getBookmarks(userId);
+  const cloudIds = new Set(knownCloudBookmarks.map((bookmark) => bookmark.id));
+
+  for (const bookmark of localBookmarks) {
+    if (cloudIds.has(bookmark.id)) continue;
+
+    const normalizedBookmark: Bookmark = {
+      ...bookmark,
+      userId,
+      userEmail: bookmark.userEmail || auth.currentUser.email || undefined,
+      emailNotificationsEnabled: bookmark.emailNotificationsEnabled !== false
+    };
+
+    try {
+      await saveBookmarkToFirestore(normalizedBookmark);
+    } catch (error) {
+      console.warn('Could not migrate local bookmark to Firestore:', bookmark.id, error);
+    }
+  }
+}
+
 export function updateBookmarkNotification(userId: string, bookId: string, enabled: boolean): Bookmark | undefined {
   const allBookmarks = safeGetJSON<Bookmark[]>(STORAGE_KEYS.BOOKMARKS, []);
   const index = allBookmarks.findIndex((b) => b.userId === userId && b.bookId === bookId);
