@@ -563,23 +563,25 @@ export async function syncLocalBookmarksToFirestore(userId: string, knownCloudBo
   }
 }
 
-export function updateBookmarkNotification(userId: string, bookId: string, enabled: boolean): Bookmark | undefined {
+export async function updateBookmarkNotification(userId: string, bookId: string, enabled: boolean): Promise<Bookmark | undefined> {
   const allBookmarks = safeGetJSON<Bookmark[]>(STORAGE_KEYS.BOOKMARKS, []);
   const index = allBookmarks.findIndex((b) => b.userId === userId && b.bookId === bookId);
-  if (index >= 0) {
-    allBookmarks[index].emailNotificationsEnabled = enabled;
-    if (auth.currentUser?.email) {
-      allBookmarks[index].userEmail = auth.currentUser.email;
-    }
-    safeSetJSON(STORAGE_KEYS.BOOKMARKS, allBookmarks);
-    if (auth.currentUser && auth.currentUser.uid === userId) {
-      saveBookmarkToFirestore(allBookmarks[index]).catch((err) =>
-        console.warn('Could not update bookmark notification in Firestore:', err)
-      );
-    }
-    return allBookmarks[index];
+  if (index < 0) return undefined;
+
+  const bookmark: Bookmark = {
+    ...allBookmarks[index],
+    emailNotificationsEnabled: enabled,
+    userEmail: auth.currentUser?.email || allBookmarks[index].userEmail || undefined
+  };
+
+  allBookmarks[index] = bookmark;
+  safeSetJSON(STORAGE_KEYS.BOOKMARKS, allBookmarks);
+
+  if (auth.currentUser && auth.currentUser.uid === userId) {
+    await saveBookmarkToFirestore(bookmark);
   }
-  return undefined;
+
+  return bookmark;
 }
 
 // ---------------- READING PROGRESS ----------------
