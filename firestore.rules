@@ -98,12 +98,22 @@ service cloud.firestore {
       allow delete: if isAdmin() && isValidId(bookId);
     }
 
-    // Chapters collection (Public manuscript read, admin-only write)
+    // Chapters 1–10 are public. Chapters 11+ require an authenticated Google reader.
+    // Admins retain full manuscript access.
     match /chapters/{chapterId} {
-      allow get, list: if true;
+      allow get, list: if isAdmin() ||
+        (isSignedIn()) ||
+        (resource.data.chapterNumber is number && resource.data.chapterNumber <= 10);
       allow create: if isAdmin() && isValidId(chapterId) && isValidChapter(incoming());
       allow update: if isAdmin() && isValidId(chapterId) && isValidChapter(incoming());
       allow delete: if isAdmin() && isValidId(chapterId);
+    }
+
+    // Public metadata for locked serialized chapters. This collection intentionally
+    // contains no manuscript content.
+    match /chapterIndex/{chapterId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin() && isValidId(chapterId);
     }
 
     // Bookmarks collection (Private to user)
