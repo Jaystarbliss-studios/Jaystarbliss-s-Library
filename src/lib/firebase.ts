@@ -222,6 +222,65 @@ export function listenToChapters(
   );
 }
 
+/**
+ * Public chapter feed for anonymous readers.
+ * Chapters 1–10 come from the full chapter collection. Chapters 11+ are represented
+ * only by public metadata in chapterIndex, never by their manuscript content.
+ */
+export function listenToPublicChapters(
+  onUpdate: (chapters: Chapter[]) => void,
+  onError?: (error: unknown) => void
+): Unsubscribe {
+  const readableQuery = query(
+    collection(db, 'chapters'),
+    where('status', '==', 'published')
+  );
+  let readable: Chapter[] = [];
+  let locked: Chapter[] = [];
+
+  const emit = () => {
+    onUpdate(
+      [...readable, ...locked]
+        .filter((chapter) => chapter.chapterNumber <= 10 || chapter.chapterNumber >= 11)
+        .sort((a, b) => a.chapterNumber - b.chapterNumber)
+    );
+  };
+
+  const unsubscribeReadable = onSnapshot(
+    readableQuery,
+    (snapshot) => {
+      readable = snapshot.docs
+        .map((item) => item.data() as Chapter)
+        .filter((chapter) => chapter.chapterNumber <= 10);
+      emit();
+    },
+    (error) => {
+      console.error('Firestore public chapter feed error:', error);
+      onError?.(error);
+    }
+  );
+
+  const unsubscribeLocked = onSnapshot(
+    collection(db, 'chapterIndex'),
+    (snapshot) => {
+      locked = snapshot.docs.map((item) => ({
+        ...(item.data() as Omit<Chapter, 'content'>),
+        content: ''
+      } as Chapter));
+      emit();
+    },
+    (error) => {
+      console.error('Firestore locked chapter index error:', error);
+      onError?.(error);
+    }
+  );
+
+  return () => {
+    unsubscribeReadable();
+    unsubscribeLocked();
+  };
+}
+
 // Data synchronization with Firestore
 export async function seedInitialFirestoreData(): Promise<void> {
   // Wireframe policy: No hardcoded or AI-imputed data is seeded.
@@ -320,6 +379,23 @@ export async function saveChapterToFirestore(chapter: Chapter): Promise<void> {
   const path = `chapters/${chapter.id}`;
   try {
     await setDoc(doc(db, 'chapters', chapter.id), sanitizeFirestoreData(chapter));
+
+    const indexRef = doc(db, 'chapterIndex', chapter.id);
+    if (chapter.status === 'published' && chapter.chapterNumber >= 11) {
+      await setDoc(indexRef, sanitizeFirestoreData({
+        id: chapter.id,
+        bookId: chapter.bookId,
+        chapterNumber: chapter.chapterNumber,
+        title: chapter.title,
+        subtitle: chapter.subtitle,
+        status: chapter.status,
+        publishedAt: chapter.publishedAt,
+        wordCount: chapter.wordCount,
+        readingTimeMinutes: chapter.readingTimeMinutes
+      }));
+    } else {
+      await deleteDoc(indexRef);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
