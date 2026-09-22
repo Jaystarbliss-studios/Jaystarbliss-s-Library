@@ -8,6 +8,7 @@ interface ChapterListProps {
   progress?: ReadingProgress;
   onSelectChapter: (chapterNumber: number) => void;
   isAdmin?: boolean;
+  isAuthenticated?: boolean;
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -15,7 +16,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   bookSlug,
   progress,
   onSelectChapter,
-  isAdmin = false
+  isAdmin = false,
+  isAuthenticated = false
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(true);
@@ -69,9 +71,10 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const isPublished = chapter.status === 'published';
           const isScheduled = chapter.status === 'scheduled';
           const isDraft = chapter.status === 'draft';
+          const isLockedForAnonymous = isPublished && chapter.chapterNumber >= 11 && !isAuthenticated && !isAdmin;
           const isCurrentReading = progress?.lastChapterNumber === chapter.chapterNumber;
           const isCompleted = progress && progress.lastChapterNumber > chapter.chapterNumber;
-          const isClickable = isPublished || isAdmin;
+          const isClickable = (isPublished && !isLockedForAnonymous) || isAdmin;
 
           return (
             <div
@@ -83,7 +86,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   : 'opacity-60 cursor-not-allowed bg-zinc-950/40'
               } ${isCurrentReading ? 'bg-zinc-800/60 border-amber-500/50 shadow-md ring-1 ring-amber-500/20' : 'bg-[#121217]/70'}`}
             >
-              <div className="flex items-start gap-4 sm:gap-6 min-w-0">
+              <div className={`flex items-start gap-4 sm:gap-6 min-w-0 ${isLockedForAnonymous ? "blur-[2px] select-none" : ""}`}>
                 
                 {/* Chapter Number Badge */}
                 <div className="shrink-0 text-center w-14 sm:w-16">
@@ -152,9 +155,27 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                 </div>
               </div>
 
+              {isLockedForAnonymous && (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center px-4"
+                  style={{ background: 'linear-gradient(90deg, rgba(13,13,18,0.80), rgba(13,13,18,0.60), rgba(13,13,18,0.90))' }}
+                  onClick={() => onSelectChapter(chapter.chapterNumber)}
+                >
+                  <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-black/50 px-4 py-2.5 backdrop-blur-sm">
+                    <Lock className="w-4 h-4 text-amber-300 shrink-0" />
+                    <div className="text-left">
+                      <div className="text-[11px] font-mono-space font-bold tracking-wider text-zinc-100">CHAPTER LOCKED</div>
+                      <div className="text-[10px] font-sans text-zinc-400">Sign in with Google to continue reading</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Status / Action Glyph */}
               <div className="shrink-0">
-                {isPublished ? (
+                {isLockedForAnonymous ? (
+                  <span title="Sign in required" className="p-2 block"><Lock className="w-5 h-5 text-amber-300" /></span>
+                ) : isPublished ? (
                   isCompleted ? (
                     <span title="Completed" className="p-2 block">
                       <CheckCircle2 className="w-5 h-5 text-emerald-400" />
