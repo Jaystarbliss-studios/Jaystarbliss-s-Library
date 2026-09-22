@@ -7,6 +7,8 @@ import {
   getRedirectResult,
   signOut,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
   User
 } from 'firebase/auth';
 import {
@@ -33,6 +35,12 @@ const app = initializeApp(firebaseConfig);
 // CRITICAL: The app will break without specifying firestoreDatabaseId
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+// Keep Google reader sessions across reloads and browser restarts until the user
+// explicitly signs out. Firebase restores this user through onAuthStateChanged.
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.warn('Could not enable persistent Google sign-in:', error);
+});
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
