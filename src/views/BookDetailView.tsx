@@ -78,6 +78,18 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
     if (!isBookmarked) {
       const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
       setIsBookmarked(bookmarkedNow);
+
+      if (bookmarkedNow) {
+        try {
+          await updateBookmarkNotification(userId, book.id, true);
+        } catch (error) {
+          console.error('Could not persist newly enabled chapter notifications:', error);
+          setNotificationsEnabled(false);
+          onShowToast('The book was added, but chapter email notifications could not be saved. Please try again.', 'error');
+          return;
+        }
+      }
+
       setNotificationsEnabled(bookmarkedNow);
       onShowToast(
         bookmarkedNow
