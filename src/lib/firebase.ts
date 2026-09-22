@@ -249,8 +249,14 @@ export function listenToPublicChapters(
   let locked: Chapter[] = [];
 
   const emit = () => {
+    const merged = new Map<string, Chapter>();
+
+    for (const chapter of [...readable, ...locked]) {
+      merged.set(chapter.id, chapter);
+    }
+
     onUpdate(
-      [...readable, ...locked]
+      Array.from(merged.values())
         .filter((chapter) => chapter.chapterNumber <= 10 || chapter.chapterNumber >= 11)
         .sort((a, b) => a.chapterNumber - b.chapterNumber)
     );
@@ -281,12 +287,62 @@ export function listenToPublicChapters(
       emit();
     },
     (error) => {
-      console.error('Firestore locked chapter index error:', error);
-      onError?.(error);
+      // chapterIndex is a convenience realtime source. Anonymous readers must
+      // still receive the locked chapter catalogue even when those index records
+      // have not been backfilled in Firestore yet.
+      console.warn('Firestore locked chapter index unavailable:', error);
     }
   );
 
+  // Production-safe fallback: the Vercel server endpoint reads the protected
+  // chapter collection with Firebase Admin credentials and returns only public
+  // metadata + a short teaser. It never exposes the full manuscript.
+  let cancelled = false;
+  const loadLockedChapterFallback = async () => {
+    try {
+      const response = await fetch('/api/public-chapter-index', {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const payload = await response.json() as {
+        chapters?: Array<{
+          id: string;
+          bookId: string;
+          chapterNumber: number;
+          title: string;
+          subtitle?: string;
+          status: string;
+          publishedAt?: string;
+          wordCount?: number;
+          readingTimeMinutes?: number;
+          teaserContent?: string;
+        }>;
+      };
+
+      if (cancelled) return;
+
+      locked = (payload.chapters || []).map((chapter) => ({
+        ...chapter,
+        content: chapter.teaserContent || '',
+        teaserContent: chapter.teaserContent || ''
+      } as Chapter));
+
+      emit();
+    } catch (error) {
+      console.warn('Public locked chapter fallback unavailable:', error);
+    }
+  };
+
+  void loadLockedChapterFallback();
+
   return () => {
+    cancelled = true;
     unsubscribeReadable();
     unsubscribeLocked();
   };
