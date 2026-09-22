@@ -114,6 +114,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Auth Helpers
 export async function loginWithGoogle(): Promise<User> {
   try {
+    await setPersistence(auth, browserLocalPersistence);
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
