@@ -390,6 +390,8 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
           bookSlug={book.slug}
           onSelectChapter={onSelectChapter}
           progress={progress}
+          isAuthenticated={Boolean(currentUser)}
+          isAdmin={isAdmin}
         />
       </div>
 
