@@ -266,7 +266,8 @@ export function listenToPublicChapters(
     (snapshot) => {
       locked = snapshot.docs.map((item) => ({
         ...(item.data() as Omit<Chapter, 'content'>),
-        content: ''
+        content: (item.data() as { teaserContent?: string }).teaserContent || '',
+        teaserContent: (item.data() as { teaserContent?: string }).teaserContent || ''
       } as Chapter));
       emit();
     },
@@ -303,7 +304,8 @@ export async function reconcileLockedChapterIndex(): Promise<void> {
       status: chapter.status,
       publishedAt: chapter.publishedAt,
       wordCount: chapter.wordCount,
-      readingTimeMinutes: chapter.readingTimeMinutes
+      readingTimeMinutes: chapter.readingTimeMinutes,
+      teaserContent: buildPublicChapterTeaser(chapter.content)
     }));
   }
 }
@@ -393,6 +395,36 @@ function sanitizeFirestoreData<T>(value: T): T {
   return value;
 }
 
+function buildPublicChapterTeaser(content: string, maxWords = 180): string {
+  const withoutUnsafeBlocks = content
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
+    .replace(/<style[\\s\\S]*?<\\/style>/gi, '');
+
+  const blocks = withoutUnsafeBlocks
+    .split(/<\\/p>|<\\/div>|<br\\s*\\/?>/gi)
+    .map((block) => block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim())
+    .filter(Boolean);
+
+  let wordsUsed = 0;
+  const paragraphs: string[] = [];
+
+  for (const block of blocks) {
+    const words = block.split(/\\s+/).filter(Boolean);
+    if (!words.length) continue;
+
+    const remaining = maxWords - wordsUsed;
+    if (remaining <= 0) break;
+
+    const selected = words.slice(0, remaining);
+    paragraphs.push(selected.join(' '));
+    wordsUsed += selected.length;
+
+    if (selected.length < words.length) break;
+  }
+
+  return paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join('');
+}
+
 export async function saveBookToFirestore(book: Book): Promise<void> {
   const path = `books/${book.id}`;
   try {
@@ -418,7 +450,8 @@ export async function saveChapterToFirestore(chapter: Chapter): Promise<void> {
         status: chapter.status,
         publishedAt: chapter.publishedAt,
         wordCount: chapter.wordCount,
-        readingTimeMinutes: chapter.readingTimeMinutes
+        readingTimeMinutes: chapter.readingTimeMinutes,
+        teaserContent: buildPublicChapterTeaser(chapter.content)
       }));
     } else {
       await deleteDoc(indexRef);
@@ -432,6 +465,7 @@ export async function deleteChapterFromFirestore(chapterId: string): Promise<voi
   const path = `chapters/${chapterId}`;
   try {
     await deleteDoc(doc(db, 'chapters', chapterId));
+    await deleteDoc(doc(db, 'chapterIndex', chapterId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
