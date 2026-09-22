@@ -405,19 +405,27 @@ function sanitizeFirestoreData<T>(value: T): T {
 
 function buildPublicChapterTeaser(content: string, maxWords = 180): string {
   const withoutUnsafeBlocks = content
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, '');
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '');
+
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
   const blocks = withoutUnsafeBlocks
-    .split(/<\\/p>|<\\/div>|<br\\s*\\/?>/gi)
-    .map((block) => block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim())
+    .split(/<\/p>|<\/div>|<br\s*\/?>/gi)
+    .map((block) => block.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
   let wordsUsed = 0;
   const paragraphs: string[] = [];
 
   for (const block of blocks) {
-    const words = block.split(/\\s+/).filter(Boolean);
+    const words = block.split(/\s+/).filter(Boolean);
     if (!words.length) continue;
 
     const remaining = maxWords - wordsUsed;
@@ -430,7 +438,7 @@ function buildPublicChapterTeaser(content: string, maxWords = 180): string {
     if (selected.length < words.length) break;
   }
 
-  return paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join('');
+  return paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
 }
 
 export async function saveBookToFirestore(book: Book): Promise<void> {
