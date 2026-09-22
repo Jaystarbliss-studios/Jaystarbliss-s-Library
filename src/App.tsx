@@ -634,15 +634,20 @@ export default function App() {
               const b = books.find((x) => x.id === bId);
               if (b) handleToggleBookmark(b);
             }}
-            onToggleNotification={(bId, enabled) => {
-              updateBookmarkNotification(activeUserId, bId, enabled);
-              refreshData();
-              showToast(
-                enabled
-                  ? 'Google email notifications active for new chapters'
-                  : 'Google email alerts muted for this book',
-                'info'
-              );
+            onToggleNotification={async (bId, enabled) => {
+              try {
+                await updateBookmarkNotification(activeUserId, bId, enabled);
+                refreshData();
+                showToast(
+                  enabled
+                    ? 'Google email notifications active for new chapters'
+                    : 'Google email alerts muted for this book',
+                  'info'
+                );
+              } catch (error) {
+                console.error('Could not persist My Library notification preference:', error);
+                showToast('Your email notification preference could not be saved to the cloud. Please try again.', 'error');
+              }
             }}
             onExploreLibrary={() => navigateTo('library')}
           />
