@@ -38,6 +38,8 @@ export interface Chapter {
   title: string;
   subtitle?: string;
   content: string;
+  /** Public preview used for locked chapters; never contains the full manuscript. */
+  teaserContent?: string;
   authorsThoughts?: string;
   status: ChapterStatus;
   scheduledFor?: string;
