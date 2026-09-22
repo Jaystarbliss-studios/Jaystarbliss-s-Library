@@ -233,7 +233,8 @@ export function listenToPublicChapters(
 ): Unsubscribe {
   const readableQuery = query(
     collection(db, 'chapters'),
-    where('status', '==', 'published')
+    where('status', '==', 'published'),
+    where('chapterNumber', '<=', 10)
   );
   let readable: Chapter[] = [];
   let locked: Chapter[] = [];
