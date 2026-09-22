@@ -69,7 +69,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
     );
   };
 
-  const handleToggleNotifications = () => {
+  const handleToggleNotifications = async () => {
     if (!currentUser?.uid || !currentUser.email) {
       onShowToast('Sign in with Google to activate chapter email notifications for this book.', 'info');
       return;
@@ -89,13 +89,18 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
     }
 
     const nextEnabled = !notificationsEnabled;
-    const updated = updateBookmarkNotification(userId, book.id, nextEnabled);
-    if (!updated) {
-      onShowToast('Could not update this book subscription. Please try again.', 'error');
+    try {
+      const updated = await updateBookmarkNotification(userId, book.id, nextEnabled);
+      if (!updated) {
+        onShowToast('Could not update this book subscription. Please try again.', 'error');
+        return;
+      }
+      setNotificationsEnabled(nextEnabled);
+    } catch (error) {
+      console.error('Could not persist chapter notification preference:', error);
+      onShowToast('Your notification preference could not be saved to the cloud. Please try again.', 'error');
       return;
     }
-
-    setNotificationsEnabled(nextEnabled);
     onShowToast(
       nextEnabled
         ? 'Chapter email notifications are now active for this book.'
