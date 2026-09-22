@@ -58,6 +58,7 @@ import {
   checkRedirectResult,
   listenToBooks,
   listenToChapters,
+  listenToPublicChapters,
   reconcileBookChapterCounts
 } from './lib/firebase';
 import { syncBookmarksWithFirestore, syncProgressWithFirestore, syncLocalBookmarksToFirestore } from './lib/storage';
@@ -242,7 +243,11 @@ export default function App() {
         setIsCloudConnected(false);
       });
 
-      unsubscribeChapters = listenToChapters((cloudChapters) => {
+      const chapterListener = isUserAdmin(auth.currentUser) || auth.currentUser
+        ? listenToChapters
+        : listenToPublicChapters;
+
+      unsubscribeChapters = chapterListener((cloudChapters) => {
         const publicChapters = cloudChapters.filter((chapter) => chapter.status === 'published');
         setChapters(isUserAdmin(auth.currentUser) ? cloudChapters : publicChapters);
         setIsCloudConnected(true);
@@ -260,7 +265,7 @@ export default function App() {
       unsubscribeBooks();
       unsubscribeChapters();
     };
-  }, [refreshData, showToast]);
+  }, [refreshData, showToast, firebaseUser]);
 
   // Initial load and periodic autonomous publishing evaluator (every 30s)
   useEffect(() => {
