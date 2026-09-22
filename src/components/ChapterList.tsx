@@ -86,7 +86,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                   : 'opacity-60 cursor-not-allowed bg-zinc-950/40'
               } ${isCurrentReading ? 'bg-zinc-800/60 border-amber-500/50 shadow-md ring-1 ring-amber-500/20' : 'bg-[#121217]/70'}`}
             >
-              <div className={`flex items-start gap-4 sm:gap-6 min-w-0 ${isLockedForAnonymous ? "blur-[2px] select-none" : ""}`}>
+              <div className={`flex items-start gap-4 sm:gap-6 min-w-0`}>
                 
                 {/* Chapter Number Badge */}
                 <div className="shrink-0 text-center w-14 sm:w-16">
