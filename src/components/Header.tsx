@@ -121,9 +121,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-zinc-200 max-w-[120px] truncate" title={firebaseUser.email || ''}>
                 {firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0]}
               </span>
-              <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full tracking-wider uppercase ${isAdmin ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-zinc-800 text-zinc-300'}`}>
-                {isAdmin ? 'Author' : 'Reader'}
-              </span>
               <button
                 onClick={onLogout}
                 title="Sign out"
