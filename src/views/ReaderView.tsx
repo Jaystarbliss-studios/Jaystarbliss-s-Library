@@ -601,7 +601,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             onLoginWithGoogle={onLoginWithGoogle}
             onShowToast={onShowToast}
             theme={preferences.theme}
-          /}>
+          />}
 
         </div>
       </main>
