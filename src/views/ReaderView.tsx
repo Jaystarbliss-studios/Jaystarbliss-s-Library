@@ -71,6 +71,37 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const prevChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber - 1);
   const nextChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber + 1);
 
+  if (chapter.chapterNumber >= 11 && !currentUser) {
+    return (
+      <div className="min-h-[calc(100dvh-3rem)] bg-[#080b10] text-zinc-100 flex items-center justify-center px-5 py-12">
+        <div className="w-full max-w-xl text-center">
+          <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-[#11141b] p-8 sm:p-12 shadow-2xl">
+            <div className="relative">
+              <div className="mx-auto mb-6 w-16 h-16 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-center">
+                <span className="text-3xl">🔒</span>
+              </div>
+              <p className="text-[10px] font-mono-space tracking-[0.25em] text-amber-400 uppercase mb-3">Chapter {chapter.chapterNumber} Locked</p>
+              <h1 className="font-cinzel text-2xl sm:text-3xl font-bold text-white">{chapter.title}</h1>
+              {chapter.subtitle && <p className="mt-2 text-sm text-zinc-400 italic">{chapter.subtitle}</p>}
+              <p className="mt-6 text-sm sm:text-base leading-relaxed text-zinc-400">
+                The first 10 chapters are available to everyone. Sign in with Google to continue reading from Chapter 11 onward.
+              </p>
+              <button
+                onClick={onLoginWithGoogle}
+                className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-6 py-3 text-xs font-mono-space font-bold tracking-wider text-zinc-950 hover:bg-white"
+              >
+                SIGN IN WITH GOOGLE
+              </button>
+              <button onClick={onBackToBook} className="mt-3 block mx-auto text-xs font-mono-space text-zinc-500 hover:text-zinc-200">
+                BACK TO BOOK
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Track scroll depth and save reading progress
   useEffect(() => {
     const handleScroll = () => {
