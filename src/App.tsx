@@ -59,6 +59,7 @@ import {
   listenToBooks,
   listenToChapters,
   listenToPublicChapters,
+  reconcileLockedChapterIndex,
   reconcileBookChapterCounts
 } from './lib/firebase';
 import { syncBookmarksWithFirestore, syncProgressWithFirestore, syncLocalBookmarksToFirestore } from './lib/storage';
@@ -505,6 +506,9 @@ export default function App() {
   // online. Readers continue to receive only published chapter documents.
   useEffect(() => {
     if (!isAdmin || books.length === 0) return;
+    reconcileLockedChapterIndex().catch((error) => {
+      console.warn('Could not reconcile locked chapter index:', error);
+    });
     reconcileBookChapterCounts(books, chapters).catch((error) => {
       console.warn('Could not reconcile live book chapter counts:', error);
     });
