@@ -282,6 +282,32 @@ export function listenToPublicChapters(
   };
 }
 
+export async function reconcileLockedChapterIndex(): Promise<void> {
+  if (!auth.currentUser || !isUserAdmin(auth.currentUser)) return;
+
+  const snapshot = await getDocs(query(
+    collection(db, 'chapters'),
+    where('status', '==', 'published')
+  ));
+
+  for (const item of snapshot.docs) {
+    const chapter = item.data() as Chapter;
+    if (chapter.chapterNumber < 11) continue;
+
+    await setDoc(doc(db, 'chapterIndex', chapter.id), sanitizeFirestoreData({
+      id: chapter.id,
+      bookId: chapter.bookId,
+      chapterNumber: chapter.chapterNumber,
+      title: chapter.title,
+      subtitle: chapter.subtitle,
+      status: chapter.status,
+      publishedAt: chapter.publishedAt,
+      wordCount: chapter.wordCount,
+      readingTimeMinutes: chapter.readingTimeMinutes
+    }));
+  }
+}
+
 // Data synchronization with Firestore
 export async function seedInitialFirestoreData(): Promise<void> {
   // Wireframe policy: No hardcoded or AI-imputed data is seeded.
