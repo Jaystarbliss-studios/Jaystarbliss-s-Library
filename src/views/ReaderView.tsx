@@ -71,36 +71,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const prevChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber - 1);
   const nextChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber + 1);
 
-  if (chapter.chapterNumber >= 11 && !currentUser) {
-    return (
-      <div className="min-h-[calc(100dvh-3rem)] bg-[#080b10] text-zinc-100 flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-xl text-center">
-          <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-[#11141b] p-8 sm:p-12 shadow-2xl">
-            <div className="relative">
-              <div className="mx-auto mb-6 w-16 h-16 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-center">
-                <span className="text-3xl">🔒</span>
-              </div>
-              <p className="text-[10px] font-mono-space tracking-[0.25em] text-amber-400 uppercase mb-3">Chapter {chapter.chapterNumber} Locked</p>
-              <h1 className="font-cinzel text-2xl sm:text-3xl font-bold text-white">{chapter.title}</h1>
-              {chapter.subtitle && <p className="mt-2 text-sm text-zinc-400 italic">{chapter.subtitle}</p>}
-              <p className="mt-6 text-sm sm:text-base leading-relaxed text-zinc-400">
-                The first 10 chapters are available to everyone. Sign in with Google to continue reading from Chapter 11 onward.
-              </p>
-              <button
-                onClick={onLoginWithGoogle}
-                className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-6 py-3 text-xs font-mono-space font-bold tracking-wider text-zinc-950 hover:bg-white"
-              >
-                SIGN IN WITH GOOGLE
-              </button>
-              <button onClick={onBackToBook} className="mt-3 block mx-auto text-xs font-mono-space text-zinc-500 hover:text-zinc-200">
-                BACK TO BOOK
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const isLockedPreview = chapter.chapterNumber >= 11 && !currentUser;
+  const previewContent = chapter.teaserContent || chapter.content;
+
 
   // Track scroll depth and save reading progress
   useEffect(() => {
@@ -122,10 +95,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    saveReadingProgress(userId, book, chapter, 0, 0);
+    if (!isLockedPreview) {
+      saveReadingProgress(userId, book, chapter, 0, 0);
+    }
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [book, chapter, userId]);
+  }, [book, chapter, userId, isLockedPreview]);
 
   // Handle preference updates
   const handleUpdatePreferences = (updated: Partial<ReaderPreferences>) => {
@@ -512,15 +487,47 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className="drop-cap"
+              className={isLockedPreview ? 'relative' : 'drop-cap'}
               style={{ color: customTextColor, '--reader-text-color': customTextColor } as React.CSSProperties}
-              dangerouslySetInnerHTML={{ __html: chapter.content }}
-            />
+            >
+              <div dangerouslySetInnerHTML={{ __html: isLockedPreview ? previewContent : chapter.content }} />
+
+              {isLockedPreview && (
+                <div className="relative mt-0 -mx-1">
+                  <div
+                    className="pointer-events-none h-28 sm:h-36 -mt-24 relative z-10"
+                    style={{
+                      background: `linear-gradient(to bottom, transparent 0%, ${customPageColor} 88%, ${customPageColor} 100%)`
+                    }}
+                  />
+                  <div className="relative z-20 -mt-8 rounded-2xl border border-amber-500/30 bg-black/80 px-5 py-6 sm:px-8 sm:py-7 text-center shadow-2xl backdrop-blur-md">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10">
+                      <span className="text-lg">🔒</span>
+                    </div>
+                    <p className="font-mono-space text-[10px] uppercase tracking-[0.24em] text-amber-300">
+                      Chapter {chapter.chapterNumber} is locked
+                    </p>
+                    <h2 className="mt-2 font-cinzel text-xl sm:text-2xl font-bold" style={{ color: customTextColor }}>
+                      Continue reading
+                    </h2>
+                    <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed opacity-70">
+                      You're reading the public preview. Sign in with Google to unlock the complete chapter and all serialized chapters from Chapter 11 onward.
+                    </p>
+                    <button
+                      onClick={onLoginWithGoogle}
+                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-6 py-3 text-xs font-mono-space font-bold tracking-wider text-zinc-950 hover:bg-white transition-all active:scale-95"
+                    >
+                      SIGN IN WITH GOOGLE
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </article>
 
           {/* Author's Thoughts intentionally comes after the narrative so the reader
               reaches the reflection only after experiencing the chapter. */}
-          {preferences.showAuthorsThoughts && chapter.authorsThoughts && (
+          {!isLockedPreview && preferences.showAuthorsThoughts && chapter.authorsThoughts && (
             <div className="mt-12 mb-8">
               <AuthorsThoughts
                 content={chapter.authorsThoughts}
@@ -586,7 +593,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
           </div>
 
           {/* Reader Chapter Comments Section (Directly uploaded to Firebase for all readers) */}
-          <ChapterComments
+          {!isLockedPreview && <ChapterComments
             chapterId={chapter.id}
             bookId={book.id}
             chapterNumber={chapter.chapterNumber}
@@ -594,7 +601,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             onLoginWithGoogle={onLoginWithGoogle}
             onShowToast={onShowToast}
             theme={preferences.theme}
-          />
+          /}>
 
         </div>
       </main>
