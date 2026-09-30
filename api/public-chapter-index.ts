@@ -19,8 +19,9 @@ function getAdminApp() {
   });
 }
 
-function buildPublicChapterTeaser(content: string, maxWords = 180): string {
-  const safeBlocks = content
+function buildPublicChapterTeaser(content: unknown, maxWords = 180): string {
+  const safeText = typeof content === 'string' ? content : String(content ?? '');
+  const safeBlocks = safeText
     .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
     .replace(/<style[\\s\\S]*?<\\/style>/gi, '')
     .split(/<\\/p>|<\\/div>|<br\\s*\\/?>/gi)
