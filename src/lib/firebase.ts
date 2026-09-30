@@ -501,7 +501,24 @@ function buildPublicChapterTeaser(content: string, maxWords = 180): string {
 export async function saveBookToFirestore(book: Book): Promise<void> {
   const path = `books/${book.id}`;
   try {
-    await setDoc(doc(db, 'books', book.id), sanitizeFirestoreData(book));
+    if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+      throw new Error('Only a verified administrator can save books.');
+    }
+
+    const idToken = await auth.currentUser.getIdToken();
+    const response = await fetch('/api/save-book', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ book: sanitizeFirestoreData(book) })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Book save failed with HTTP ${response.status}`);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
