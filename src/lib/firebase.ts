@@ -510,24 +510,27 @@ export async function saveBookToFirestore(book: Book): Promise<void> {
 export async function saveChapterToFirestore(chapter: Chapter): Promise<void> {
   const path = `chapters/${chapter.id}`;
   try {
-    await setDoc(doc(db, 'chapters', chapter.id), sanitizeFirestoreData(chapter));
+    if (!auth.currentUser || !isUserAdmin(auth.currentUser) || !auth.currentUser.emailVerified) {
+      throw new Error('Only a verified administrator can save chapters.');
+    }
 
-    const indexRef = doc(db, 'chapterIndex', chapter.id);
-    if (chapter.status === 'published' && chapter.chapterNumber >= 11) {
-      await setDoc(indexRef, sanitizeFirestoreData({
-        id: chapter.id,
-        bookId: chapter.bookId,
-        chapterNumber: chapter.chapterNumber,
-        title: chapter.title,
-        subtitle: chapter.subtitle,
-        status: chapter.status,
-        publishedAt: chapter.publishedAt,
-        wordCount: chapter.wordCount,
-        readingTimeMinutes: chapter.readingTimeMinutes,
-        teaserContent: buildPublicChapterTeaser(chapter.content)
-      }));
-    } else {
-      await deleteDoc(indexRef);
+    // Chapter writes are routed through a verified Vercel server endpoint.
+    // This avoids depending on whichever Firestore security-rules revision is
+    // currently deployed while keeping the browser from receiving Admin SDK
+    // credentials. The endpoint verifies the same Firebase ID token.
+    const idToken = await auth.currentUser.getIdToken();
+    const response = await fetch('/api/save-chapter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ chapter: sanitizeFirestoreData(chapter) })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Chapter save failed with HTTP ${response.status}`);
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
