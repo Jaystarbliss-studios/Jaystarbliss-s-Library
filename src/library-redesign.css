@@ -1,0 +1,441 @@
+/* Library X — complete product redesign
+   Visual direction: premium dark reading app, soft surfaces, restrained colour,
+   compact mobile hierarchy, editorial content-first layouts.
+*/
+
+:root {
+  --lx-bg: #080b10;
+  --lx-bg-soft: #0d1117;
+  --lx-surface: #111720;
+  --lx-surface-2: #151c25;
+  --lx-surface-3: #1a222d;
+  --lx-line: rgba(255,255,255,.075);
+  --lx-line-strong: rgba(255,255,255,.13);
+  --lx-text: #f3f5f7;
+  --lx-muted: #9aa3ae;
+  --lx-dim: #68727e;
+  --lx-accent: #dce9e7;
+  --lx-accent-ink: #101719;
+  --lx-radius: 18px;
+  --lx-radius-sm: 13px;
+  --lx-shadow: 0 18px 50px rgba(0,0,0,.24);
+}
+
+html, body { background: var(--lx-bg) !important; }
+body { color: var(--lx-text) !important; }
+#root { min-height: 100dvh; background: var(--lx-bg); }
+
+/* --------------------------------------------------------------------------
+   Global product language
+   -------------------------------------------------------------------------- */
+#root .bg-\[\#0c0c12\],
+#root .bg-\[\#0d0d12\],
+#root .bg-\[\#0d0d14\],
+#root .bg-\[\#0e0e10\],
+#root .bg-\[\#0d0d11\] { background-color: var(--lx-bg) !important; }
+
+#root .bg-zinc-950,
+#root .bg-zinc-950\/80,
+#root .bg-zinc-900,
+#root .bg-zinc-900\/80,
+#root .bg-zinc-900\/90,
+#root .bg-\[\#131318\],
+#root .bg-\[\#131319\],
+#root .bg-\[\#131319\]\/80,
+#root .bg-\[\#131319\]\/90,
+#root .bg-\[\#15151e\],
+#root .bg-\[\#121218\] { background-color: var(--lx-surface) !important; }
+
+#root .border-zinc-800,
+#root .border-zinc-800\/80,
+#root .border-zinc-800\/90,
+#root .border-zinc-700,
+#root .border-zinc-700\/60,
+#root .border-zinc-700\/70,
+#root .border-zinc-700\/80 { border-color: var(--lx-line) !important; }
+
+#root .text-zinc-100 { color: #eef1f3 !important; }
+#root .text-zinc-200 { color: #dfe4e8 !important; }
+#root .text-zinc-300 { color: #bfc7cf !important; }
+#root .text-zinc-400 { color: #99a3ae !important; }
+#root .text-zinc-500 { color: #747e89 !important; }
+#root .text-zinc-600 { color: #56606c !important; }
+
+#root .text-amber-300,
+#root .text-amber-400,
+#root .text-amber-500,
+#root .text-emerald-300,
+#root .text-emerald-400,
+#root .text-sky-300,
+#root .text-rose-400 { color: #c8d1d4 !important; }
+#root .bg-amber-400,
+#root .bg-amber-500,
+#root .bg-emerald-400,
+#root .bg-emerald-500 { background-color: #dce9e7 !important; }
+#root .bg-amber-500\/10,
+#root .bg-amber-500\/15,
+#root .bg-amber-500\/20,
+#root .bg-emerald-500\/10 { background-color: rgba(220,233,231,.08) !important; }
+
+#root .rounded-3xl,
+#root .rounded-2xl { border-radius: var(--lx-radius) !important; }
+#root .rounded-xl { border-radius: var(--lx-radius-sm) !important; }
+#root .rounded-lg { border-radius: 11px !important; }
+#root .rounded-full:not(img) { border-radius: 10px !important; }
+
+#root .shadow-2xl,
+#root .shadow-xl,
+#root .shadow-lg { box-shadow: var(--lx-shadow) !important; }
+
+#root button,
+#root a,
+#root input,
+#root select,
+#root textarea { transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease; }
+#root button:active, #root a:active { transform: translateY(1px); }
+
+/* --------------------------------------------------------------------------
+   Header / top navigation
+   -------------------------------------------------------------------------- */
+#root header:not(:has(.reader-content-font)) {
+  background: rgba(8,11,16,.88) !important;
+  border-bottom: 1px solid var(--lx-line) !important;
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+}
+#root header:not(:has(.reader-content-font)) > div {
+  height: 64px !important;
+}
+#root header:not(:has(.reader-content-font)) nav button {
+  border: 1px solid transparent;
+  background: transparent !important;
+  color: var(--lx-muted) !important;
+  border-radius: 12px !important;
+}
+#root header:not(:has(.reader-content-font)) nav button:hover,
+#root header:not(:has(.reader-content-font)) nav button[class*="bg-zinc-800"] {
+  color: #f5f7f8 !important;
+  background: rgba(255,255,255,.055) !important;
+  border-color: var(--lx-line) !important;
+}
+#root header:not(:has(.reader-content-font)) button[class*="SIGN IN"],
+#root header:not(:has(.reader-content-font)) button[class*="SIGN IN"] {
+  border-radius: 12px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Home / discovery
+   -------------------------------------------------------------------------- */
+#root .max-w-7xl { max-width: 1180px !important; }
+#root .font-calibri { letter-spacing: 0; }
+
+/* Home hero becomes a calm editorial discovery surface. */
+#root .relative.border-b.border-zinc-800\/80.bg-\[\#0c0c12\] {
+  min-height: 280px;
+  padding-top: 34px !important;
+  padding-bottom: 28px !important;
+  background: linear-gradient(135deg, #0c1117 0%, #090d12 60%, #0b1115 100%) !important;
+  border-bottom-color: var(--lx-line) !important;
+}
+#root .relative.border-b.border-zinc-800\/80.bg-\[\#0c0c12\] > .absolute:first-child { opacity: .12 !important; }
+#root .relative.border-b.border-zinc-800\/80.bg-\[\#0c0c12\] > .absolute:nth-child(2) {
+  background: linear-gradient(90deg, rgba(8,11,16,.95), rgba(8,11,16,.78), rgba(8,11,16,.96)) !important;
+}
+
+/* The large home search shown in the old design is intentionally removed. */
+#root input[placeholder*="Search by book title"] { display: none !important; }
+#root input[placeholder*="Search by book title"] ~ * { display: none !important; }
+#root .relative:has(> input[placeholder*="Search by book title"]) { display: none !important; }
+
+/* Home tabs read as navigation, not a collection of badges. */
+#root .overflow-x-auto.no-scrollbar { scrollbar-width: none; }
+#root .overflow-x-auto.no-scrollbar button {
+  border: 1px solid var(--lx-line) !important;
+  background: rgba(255,255,255,.025) !important;
+  color: var(--lx-muted) !important;
+  border-radius: 12px !important;
+}
+#root .overflow-x-auto.no-scrollbar button:hover,
+#root .overflow-x-auto.no-scrollbar button[class*="bg-zinc-100"] {
+  background: #e9eeee !important;
+  color: #101719 !important;
+  border-color: #e9eeee !important;
+}
+
+/* --------------------------------------------------------------------------
+   Book cards — cover-led, quieter metadata, stronger CTA
+   -------------------------------------------------------------------------- */
+#root .group.relative.bg-\[\#131318\]\/90 {
+  background: linear-gradient(180deg, #111720 0%, #0e141b 100%) !important;
+  border: 1px solid var(--lx-line) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 12px 34px rgba(0,0,0,.18) !important;
+  transform: none !important;
+}
+#root .group.relative.bg-\[\#131318\]\/90:hover {
+  border-color: rgba(255,255,255,.16) !important;
+  box-shadow: 0 20px 45px rgba(0,0,0,.28) !important;
+  transform: translateY(-3px) !important;
+}
+#root .group.relative.bg-\[\#131318\]\/90 > div:first-child {
+  border-radius: 19px 19px 12px 12px !important;
+}
+#root .group.relative.bg-\[\#131318\]\/90 > div:nth-child(2) { height: 3px !important; background: rgba(255,255,255,.07) !important; }
+#root .group.relative.bg-\[\#131318\]\/90 > div:nth-child(2) > div { background: #dce9e7 !important; height: 3px !important; }
+#root .group.relative.bg-\[\#131318\]\/90 .font-cinzel { letter-spacing: .01em; }
+#root .group.relative.bg-\[\#131318\]\/90 .font-mono-space { letter-spacing: .045em; }
+#root .group.relative.bg-\[\#131318\]\/90 button[aria-label="Bookmark"] {
+  background: rgba(8,11,16,.7) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  border-radius: 12px !important;
+}
+#root .group.relative.bg-\[\#131318\]\/90 button[aria-label="Bookmark"]:hover { background: rgba(255,255,255,.1) !important; }
+#root .group.relative.bg-\[\#131318\]\/90 .pt-3.border-t { border-top-color: var(--lx-line) !important; }
+#root .group.relative.bg-\[\#131318\]\/90 button:not([aria-label="Bookmark"]) {
+  background: #e8eeee !important;
+  color: #111719 !important;
+  border-color: transparent !important;
+  border-radius: 13px !important;
+  font-weight: 700 !important;
+}
+#root .group.relative.bg-\[\#131318\]\/90 button:not([aria-label="Bookmark"]):hover { background: #fff !important; }
+
+/* --------------------------------------------------------------------------
+   Archive / library / genres / latest surfaces
+   -------------------------------------------------------------------------- */
+#root .max-w-7xl.mx-auto.px-4.sm\:px-6.lg\:px-8.py-8.sm\:py-12 {
+  padding-top: 30px !important;
+  padding-bottom: 42px !important;
+}
+#root .max-w-7xl.mx-auto.px-4.sm\:px-6.lg\:px-8.py-8.sm\:py-12 > .relative.overflow-hidden {
+  background: linear-gradient(135deg,#111820,#0d131a) !important;
+  border-color: var(--lx-line) !important;
+  padding: 28px !important;
+}
+#root .max-w-7xl.mx-auto.px-4.sm\:px-6.lg\:px-8.py-8.sm\:py-12 > .bg-\[\#131319\]\/90 {
+  background: rgba(17,23,32,.88) !important;
+  border-color: var(--lx-line) !important;
+}
+#root input, #root select, #root textarea {
+  background: #10161e !important;
+  border-color: var(--lx-line-strong) !important;
+  color: #e8ecef !important;
+  box-shadow: none !important;
+}
+#root input:focus, #root select:focus, #root textarea:focus {
+  border-color: rgba(220,233,231,.35) !important;
+  box-shadow: 0 0 0 3px rgba(220,233,231,.055) !important;
+}
+
+/* Genre/filter chips are compact rectangular metadata controls. */
+#root button[class*="rounded-full"] {
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Book detail
+   -------------------------------------------------------------------------- */
+#root img[alt][class*="object-cover"] { border-radius: 16px; }
+#root .font-cinzel { letter-spacing: .012em; }
+
+/* Strong primary CTA across public reader-facing screens. */
+#root button.bg-zinc-100,
+#root a.bg-zinc-100,
+#root button[class*="bg-zinc-100"] {
+  background: #e8eeee !important;
+  color: #101719 !important;
+  border-color: transparent !important;
+  border-radius: 13px !important;
+}
+#root button.bg-zinc-100:hover,
+#root a.bg-zinc-100:hover { background: #fff !important; }
+
+/* --------------------------------------------------------------------------
+   Mobile navigation — floating native-app bar
+   -------------------------------------------------------------------------- */
+#root .mobile-bottom-nav {
+  left: 50% !important;
+  right: auto !important;
+  bottom: max(9px, env(safe-area-inset-bottom)) !important;
+  width: min(430px, calc(100vw - 18px)) !important;
+  transform: translateX(-50%);
+  padding: 6px !important;
+  border: 1px solid rgba(255,255,255,.11) !important;
+  border-radius: 21px !important;
+  background: rgba(16,21,28,.88) !important;
+  box-shadow: 0 18px 45px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.05) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+#root .mobile-bottom-nav > div { max-width: none !important; width: 100%; }
+#root .mobile-bottom-nav button {
+  min-height: 42px !important;
+  border-radius: 15px !important;
+  background: transparent !important;
+  color: #8f99a5 !important;
+}
+#root .mobile-bottom-nav button:hover,
+#root .mobile-bottom-nav button[class*="bg-zinc-800"] {
+  background: rgba(255,255,255,.08) !important;
+  color: #f5f7f8 !important;
+}
+#root .mobile-bottom-nav button span { font-size: 9px !important; letter-spacing: .035em !important; }
+#root .mobile-bottom-nav button svg { width: 17px !important; height: 17px !important; }
+#root .mobile-bottom-nav .rounded-full { border-radius: 7px !important; }
+
+/* --------------------------------------------------------------------------
+   Reader: preserve manuscript surface, redesign chrome as a Dynamic-Island dock
+   -------------------------------------------------------------------------- */
+body:has(.reader-content-font) {
+  background: #080b10 !important;
+}
+body:has(.reader-content-font) > #root > div { padding-bottom: 0 !important; }
+
+/* Existing reader header becomes the functional floating control dock.
+   No reader content or typography is altered. */
+body:has(.reader-content-font) #root header {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  top: auto !important;
+  width: min(520px, calc(100vw - 18px)) !important;
+  height: 58px !important;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255,255,255,.13) !important;
+  border-radius: 21px !important;
+  background: rgba(15,20,27,.9) !important;
+  box-shadow: 0 20px 55px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.05) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  z-index: 90 !important;
+}
+body:has(.reader-content-font) #root header > div {
+  height: 58px !important;
+  padding: 5px 7px !important;
+}
+body:has(.reader-content-font) #root header button {
+  min-width: 42px;
+  height: 42px;
+  border-radius: 14px !important;
+  background: transparent;
+}
+body:has(.reader-content-font) #root header button:hover { background: rgba(255,255,255,.08) !important; }
+body:has(.reader-content-font) #root header button:disabled { opacity: .25; }
+body:has(.reader-content-font) #root header .font-cinzel { font-size: 9px !important; letter-spacing: .06em; }
+body:has(.reader-content-font) #root header .font-cambria { display: none; }
+body:has(.reader-content-font) #root header > div > div:nth-child(2) {
+  max-width: 155px !important;
+}
+body:has(.reader-content-font) #root header svg { width: 17px !important; height: 17px !important; }
+body:has(.reader-content-font) #root header + * { padding-bottom: 84px !important; }
+body:has(.reader-content-font) #root .reader-content-font { scroll-margin-bottom: 90px; }
+
+/* Reader progress remains visible as a thin line above the dock. */
+body:has(.reader-content-font) #root > div > div.fixed.top-0 {
+  z-index: 95 !important;
+  height: 2px !important;
+}
+body:has(.reader-content-font) #root > div > div.fixed.top-0 > div { background: #e8eeee !important; }
+
+/* --------------------------------------------------------------------------
+   Modals / drawers / empty states
+   -------------------------------------------------------------------------- */
+#root [role="dialog"] > div,
+#root .fixed.inset-0 > div[class*="rounded"] {
+  border-color: var(--lx-line) !important;
+  box-shadow: 0 30px 80px rgba(0,0,0,.5) !important;
+}
+#root .fixed.inset-0 { backdrop-filter: blur(7px); }
+
+/* --------------------------------------------------------------------------
+   Responsive scaling — desktop composition translated to phone viewport
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  #root .max-w-7xl { width: 100%; max-width: none !important; }
+  #root .px-4, #root .sm\:px-6, #root .lg\:px-8 { padding-left: 12px !important; padding-right: 12px !important; }
+  #root .py-8 { padding-top: 18px !important; padding-bottom: 18px !important; }
+  #root .py-10 { padding-top: 22px !important; padding-bottom: 22px !important; }
+  #root .py-12 { padding-top: 24px !important; padding-bottom: 24px !important; }
+  #root .p-8 { padding: 18px !important; }
+  #root .p-6 { padding: 14px !important; }
+  #root .p-5 { padding: 12px !important; }
+  #root .p-4 { padding: 10px !important; }
+  #root .gap-8 { gap: 16px !important; }
+  #root .gap-6 { gap: 12px !important; }
+  #root .gap-5 { gap: 10px !important; }
+  #root .gap-4 { gap: 9px !important; }
+  #root .gap-3 { gap: 7px !important; }
+  #root .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 16px !important; }
+  #root .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px !important; }
+  #root .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 9px !important; }
+
+  #root .text-5xl { font-size: 1.85rem !important; line-height: 1.05 !important; }
+  #root .text-4xl { font-size: 1.55rem !important; line-height: 1.08 !important; }
+  #root .text-3xl { font-size: 1.32rem !important; line-height: 1.12 !important; }
+  #root .text-2xl { font-size: 1.16rem !important; line-height: 1.18 !important; }
+  #root .text-xl { font-size: 1.02rem !important; line-height: 1.22 !important; }
+  #root .text-lg { font-size: .94rem !important; line-height: 1.28 !important; }
+  #root .text-base { font-size: .88rem !important; }
+  #root .text-sm { font-size: .77rem !important; }
+  #root .text-xs { font-size: .66rem !important; }
+
+  #root header:not(:has(.reader-content-font)) > div { height: 56px !important; }
+  #root header:not(:has(.reader-content-font)) img { max-height: 30px; }
+
+  #root .relative.border-b.border-zinc-800\/80.bg-\[\#0c0c12\] {
+    min-height: 0 !important;
+    padding-top: 20px !important;
+    padding-bottom: 14px !important;
+  }
+
+  #root .group.relative.bg-\[\#131318\]\/90 { border-radius: 17px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 > div:first-child { border-radius: 16px 16px 10px 10px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .p-5 { padding: 12px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 h3 { font-size: 1rem !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .font-cambria { font-size: .78rem !important; }
+
+  /* Preserve cover-led browsing on phone. */
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3.xl\:grid-cols-4 {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    gap: 9px !important;
+  }
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    gap: 9px !important;
+  }
+  #root .group.relative.bg-\[\#131318\]\/90 > div:first-child { aspect-ratio: 2 / 2.65 !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .description,
+  #root .group.relative.bg-\[\#131318\]\/90 p.font-cambria { display: none; }
+  #root .group.relative.bg-\[\#131318\]\/90 .pt-3 { padding-top: 8px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .flex.flex-wrap { display: none; }
+
+  /* On small screens, keep the app's persistent nav floating above content. */
+  #root > div { padding-bottom: 82px; }
+  body:has(.reader-content-font) #root > div { padding-bottom: 0; }
+}
+
+@media (max-width: 420px) {
+  #root .px-4, #root .sm\:px-6, #root .lg\:px-8 { padding-left: 10px !important; padding-right: 10px !important; }
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3.xl\:grid-cols-4,
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 { gap: 8px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .p-5 { padding: 10px !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 h3 { font-size: .88rem !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 .text-xs { font-size: .58rem !important; }
+  #root .group.relative.bg-\[\#131318\]\/90 button:not([aria-label="Bookmark"]) { font-size: .58rem !important; padding: 8px 9px !important; }
+
+  body:has(.reader-content-font) #root header {
+    width: calc(100vw - 14px) !important;
+    height: 54px !important;
+    border-radius: 19px !important;
+  }
+  body:has(.reader-content-font) #root header > div { height: 54px !important; }
+  body:has(.reader-content-font) #root header button { min-width: 38px; height: 40px; }
+  body:has(.reader-content-font) #root header > div > div:nth-child(2) { max-width: 110px !important; }
+}
+
+@media (min-width: 768px) {
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3.xl\:grid-cols-4 { gap: 18px !important; }
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 { gap: 18px !important; }
+}
