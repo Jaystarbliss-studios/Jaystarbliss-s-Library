@@ -11,11 +11,8 @@ import {
   ChevronRight,
   Bookmark as BookmarkIcon,
   Sliders,
-  CheckCircle2,
-  Share2,
-  BookOpen,
-  X,
-  Bell
+  MessageSquare,
+  X
 } from 'lucide-react';
 import {
   saveReadingProgress,
@@ -50,7 +47,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 }) => {
   const [preferences, setPreferences] = useState<ReaderPreferences>(getReaderPreferences());
   const [showControls, setShowControls] = useState(false);
-  const [showChapterDrawer, setShowChapterDrawer] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(checkIsBookmarked(userId, book.id));
   const contentRef = useRef<HTMLDivElement>(null);
@@ -71,36 +68,34 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const prevChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber - 1);
   const nextChapter = publishedChapters.find((c) => c.chapterNumber === chapter.chapterNumber + 1);
 
-  const isLockedPreview = chapter.chapterNumber >= 11 && !currentUser;
+  const isAuthenticated = Boolean(currentUser);
+  const isAdmin = currentUser?.email === 'johnrufai242@gmail.com' || (currentUser as any)?.role === 'admin';
+  const isLocked = chapter.chapterNumber >= 11 && !isAuthenticated && !isAdmin;
   const previewContent = chapter.teaserContent || chapter.content;
-
 
   // Track scroll depth and save reading progress
   useEffect(() => {
     const handleScroll = () => {
-      const el = contentRef.current;
-      if (!el) return;
-
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (totalHeight <= 0) {
         setScrollProgress(100);
         return;
       }
-
       const currentScroll = window.scrollY;
-      const percent = Math.min(100, Math.max(0, (currentScroll / totalHeight) * 100));
+      const percent = Math.min(100, Math.max(0, Math.round((currentScroll / totalHeight) * 100)));
       setScrollProgress(percent);
 
-      saveReadingProgress(userId, book, chapter, percent, currentScroll);
+      if (percent > 3 && !isLocked) {
+        saveReadingProgress(userId, book, chapter, percent, currentScroll);
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    if (!isLockedPreview) {
+    if (!isLocked) {
       saveReadingProgress(userId, book, chapter, 0, 0);
     }
-
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [book, chapter, userId, isLockedPreview]);
+  }, [book, chapter, userId, isLocked]);
 
   // Handle preference updates
   const handleUpdatePreferences = (updated: Partial<ReaderPreferences>) => {
@@ -109,19 +104,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     saveReaderPreferences(newPrefs);
   };
 
-  const handleToggleBookmark = () => {
-    const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
+  const handleToggleBookmark = async () => {
+    const bookmarkedNow = await toggleBookmark(userId, book, currentUser?.email || undefined);
     setIsBookmarked(bookmarkedNow);
     onShowToast(
       bookmarkedNow
-        ? `Added "${book.title}" to My Shelf • Email alerts enabled`
-        : `Removed "${book.title}" from My Shelf`,
+        ? `Added "${book.title}" to My Library`
+        : `Removed "${book.title}" from My Library`,
       'info'
     );
   };
 
-  // Reader typography is controlled with explicit values so every size has
-  // proportional line spacing instead of relying on fixed Tailwind leading classes.
+  // Typography scale
   const readerFontSizes: Record<ReaderPreferences['fontSize'], { size: string; lineHeight: number }> = {
     sm: { size: '16px', lineHeight: 1.7 },
     base: { size: '18px', lineHeight: 1.78 },
@@ -129,12 +123,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     xl: { size: '25px', lineHeight: 1.86 },
     '2xl': { size: '30px', lineHeight: 1.9 }
   };
-  const activeTypography = readerFontSizes[preferences.fontSize];
 
+  const activeTypography = readerFontSizes[preferences.fontSize] || readerFontSizes.base;
   const fontSizeOrder: ReaderPreferences['fontSize'][] = ['sm', 'base', 'lg', 'xl', '2xl'];
   const fontSizeIndex = fontSizeOrder.indexOf(preferences.fontSize);
 
-  const distanceBetweenTouches = (touches: TouchList) => {
+  const distanceBetweenTouches = (touches: React.TouchList | TouchList) => {
     const a = touches[0];
     const b = touches[1];
     return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
@@ -149,55 +143,25 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
   const handleReaderTouchMove = (event: React.TouchEvent<HTMLElement>) => {
     if (event.touches.length !== 2 || pinchStartDistanceRef.current === null) return;
-
     const currentDistance = distanceBetweenTouches(event.touches);
     const ratio = currentDistance / pinchStartDistanceRef.current;
 
-    // Each meaningful pinch step changes the reader size once, preventing
-    // tiny finger movements from jumping through several sizes.
     let nextIndex = fontSizeOrder.indexOf(pinchStartFontSizeRef.current);
     if (ratio >= 1.12) nextIndex += Math.min(2, Math.floor((ratio - 1) / 0.12));
     if (ratio <= 0.88) nextIndex -= Math.min(2, Math.floor((1 - ratio) / 0.12));
-
     nextIndex = Math.max(0, Math.min(fontSizeOrder.length - 1, nextIndex));
 
     if (nextIndex !== pinchLastIndexRef.current) {
       pinchLastIndexRef.current = nextIndex;
-      onChangeReaderFontSize(fontSizeOrder[nextIndex]);
+      handleUpdatePreferences({ fontSize: fontSizeOrder[nextIndex] });
     }
-
-    event.preventDefault();
   };
 
   const handleReaderTouchEnd = () => {
     pinchStartDistanceRef.current = null;
   };
 
-  const onChangeReaderFontSize = (fontSize: ReaderPreferences['fontSize']) => {
-    if (fontSize === preferences.fontSize) return;
-    handleUpdatePreferences({ fontSize });
-  };
-
-  // Column width class mapping
-  const widthClasses = {
-    narrow: 'max-w-[65ch]',
-    standard: 'max-w-[75ch]',
-    wide: 'max-w-[88ch]'
-  };
-
-  // Font family class mapping
-  const fontClasses: Record<string, string> = {
-    merriweather: 'font-merriweather',
-    lora: 'font-lora',
-    inter: 'font-inter',
-    roboto: 'font-roboto',
-    garamond: 'font-garamond',
-    newsreader: 'font-newsreader',
-    cambria: 'font-cambria',
-    sans: 'font-sans-clean',
-    mono: 'font-mono-space'
-  };
-
+  // Font family styles
   const currentFontFamilyStyle: React.CSSProperties['fontFamily'] = {
     merriweather: '"Merriweather", Georgia, serif',
     lora: '"Lora", Georgia, serif',
@@ -208,273 +172,91 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     cambria: 'Cambria, Georgia, serif',
     sans: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     mono: '"Space Mono", monospace'
-  }[preferences.fontFamily] || 'Merriweather, Georgia, serif';
+  }[preferences.fontFamily] || '"Merriweather", Georgia, serif';
 
-  // Theme styling mapping (softened, easy on reader eyes)
-  const themeStyles = {
-    light: {
-      wrapper: 'bg-[#f4efe8]',
-      pageSheet: 'bg-[#ffffff] text-[#1c1c20] border-zinc-200 shadow-xl shadow-zinc-300/40',
-      headerBg: 'bg-[#ffffff]/95 border-zinc-200 text-zinc-800',
-      headerBorder: 'border-zinc-200',
-      metaText: 'text-zinc-500',
-      ruleColor: 'border-zinc-200',
-      prose: 'text-[#1c1c20]',
-      buttonBg: 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-zinc-200'
-    },
-    sepia: {
-      wrapper: 'bg-[#221c16]',
-      pageSheet: 'bg-[#f7f0e1] text-[#2c2217] border-[#e4d7be] shadow-2xl shadow-black/40',
-      headerBg: 'bg-[#1c1712]/95 border-[#3d3124] text-[#e6dcc8]',
-      headerBorder: 'border-[#e4d7be]',
-      metaText: 'text-[#7d684d]',
-      ruleColor: 'border-[#dfd0b2]',
-      prose: 'text-[#2c2217]',
-      buttonBg: 'bg-[#2d241c] hover:bg-[#382d23] text-[#e6dcc8] border-[#4a3b2b]'
-    },
-    dark: {
-      wrapper: 'bg-[#0e0e13]',
-      pageSheet: 'bg-[#15151c] text-[#dededc] border-zinc-800/80 shadow-2xl shadow-black/60',
-      headerBg: 'bg-[#0d0d12]/95 border-zinc-800/80 text-zinc-200',
-      headerBorder: 'border-zinc-800/80',
-      metaText: 'text-zinc-400',
-      ruleColor: 'border-zinc-800/80',
-      prose: 'text-[#f4f6fb]',
-      buttonBg: 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
-    },
-    obsidian: {
-      wrapper: 'bg-[#070709]',
-      pageSheet: 'bg-[#0f0f13] text-[#d6d6d8] border-zinc-800/70 shadow-2xl shadow-black/90',
-      headerBg: 'bg-[#08080b]/95 border-zinc-800 text-zinc-300',
-      headerBorder: 'border-zinc-800',
-      metaText: 'text-zinc-500',
-      ruleColor: 'border-zinc-800',
-      prose: 'text-[#d6d6d8]',
-      buttonBg: 'bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
-    }
-  };
-
-  const currentThemeStyle = themeStyles[preferences.theme] || themeStyles.dark;
-  const currentFontClass = fontClasses[preferences.fontFamily] || 'font-cambria';
-
-  // Reading themes are intentionally resolved here rather than trusting old
-  // saved custom colors. This prevents a stale low-contrast text color from
-  // surviving a theme switch.
-  const resolvedTheme = preferences.theme === 'obsidian' ? 'dark' : preferences.theme;
+  // High contrast color palettes for immersive reading
+  const resolvedTheme = preferences.theme === 'obsidian' ? 'dark' : (preferences.theme || 'dark');
   const themePalette = {
-    light: { page: '#ffffff', text: '#17181c', wrapper: '#f1f3f6' },
-    sepia: { page: '#f4ecd8', text: '#2b2117', wrapper: '#2b241d' },
-    dark: { page: '#151922', text: '#f4f6fb', wrapper: '#080b10' }
+    light: { page: '#ffffff', text: '#111317', wrapper: '#f3eee7', border: '#e2e8f0' },
+    sepia: { page: '#f4ecd8', text: '#2b2117', wrapper: '#221c16', border: '#e4d7be' },
+    dark: { page: '#11131a', text: '#f4f6fb', wrapper: '#09090d', border: '#27272a' }
   } as const;
+
   const activePalette = themePalette[resolvedTheme as keyof typeof themePalette] || themePalette.dark;
-  const customPageColor = activePalette.page;
-  const customTextColor = activePalette.text;
+  const customPageColor = preferences.pageColor || activePalette.page;
+  const customTextColor = preferences.textColor || activePalette.text;
   const customWrapperBg = activePalette.wrapper;
-  const isDarkPage = resolvedTheme === 'dark';
 
   return (
-    <div 
-      className="min-h-screen transition-colors duration-300"
-      style={{ backgroundColor: customWrapperBg }}
+    <div
+      className="min-h-screen transition-colors duration-300 relative flex flex-col justify-between selection:bg-teal-500/20 selection:text-teal-200"
+      style={{ backgroundColor: customWrapperBg, color: customTextColor }}
     >
-      
-      {/* Scroll Progress Indicator */}
+      {/* Scroll Progress Bar at Top */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-transparent z-50 pointer-events-none">
         <div
-          className="h-full bg-amber-400/80 dark:bg-amber-300/80 transition-all duration-150 rounded-r-full"
+          className="h-full bg-teal-400 transition-all duration-150"
           style={{ width: `${scrollProgress}%` }}
         />
       </div>
 
-      {/* Reader Sticky Header Controls */}
-      <header 
-        className="sticky top-0 z-40 w-full backdrop-blur-md border-b transition-colors"
-        style={{
-          backgroundColor: isDarkPage ? 'rgba(13, 13, 18, 0.95)' : 'rgba(250, 248, 245, 0.95)',
-          borderColor: isDarkPage ? 'rgba(63, 63, 70, 0.5)' : 'rgba(228, 228, 231, 0.8)',
-          color: isDarkPage ? '#f4f4f5' : '#18181b'
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 h-12 sm:h-14 flex items-center justify-between gap-2">
-          
-          {/* Left: Back to Book */}
-          <button
-            onClick={onBackToBook}
-            className="shrink-0 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-all active:scale-95"
-            aria-label="Back to book"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+      {/* Floating Minimalist Back Button (Top Left) */}
+      <div className="fixed top-4 left-4 z-40">
+        <button
+          onClick={onBackToBook}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white/90 hover:text-white border border-white/10 shadow-lg text-xs font-semibold transition-all active:scale-95"
+          aria-label="Back to book"
+          title="Back to Book Overview"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+      </div>
 
-          {/* Center: Current Chapter Title */}
-          <div className="min-w-0 flex-1 text-center truncate px-1 sm:px-3 max-w-[190px] sm:max-w-md mx-auto">
-            <span className="font-cinzel text-[10px] sm:text-xs font-bold tracking-wide block truncate">
-              CH. {chapter.chapterNumber}: {chapter.title}
-            </span>
-            {chapter.subtitle && (
-              <span className="font-cambria text-[9px] sm:text-[10px] italic opacity-65 block truncate">
-                {chapter.subtitle}
-              </span>
-            )}
-          </div>
+      {/* Floating Minimalist Comments Toggle (Top Right) */}
+      <div className="fixed top-4 right-4 z-40">
+        <button
+          onClick={() => setShowComments(true)}
+          className="p-2.5 rounded-2xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white/90 hover:text-white border border-white/10 shadow-lg transition-all active:scale-95"
+          aria-label="Chapter comments"
+          title="Chapter Comments"
+        >
+          <MessageSquare className="w-4 h-4" />
+        </button>
+      </div>
 
-          {/* Right: Quick Chapter Switcher & Reader Preferences */}
-          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
-            
-            {/* Compact chapter navigation */}
-            <div className="flex items-center gap-0.5 shrink-0">
-              <button
-                disabled={!prevChapter}
-                onClick={() => prevChapter && onNavigateChapter(prevChapter.chapterNumber)}
-                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                  prevChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-25 cursor-not-allowed'
-                }`}
-                title={prevChapter ? `Previous: ${prevChapter.title}` : 'First chapter'}
-                aria-label="Previous Chapter"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <button
-                disabled={!nextChapter}
-                onClick={() => nextChapter && onNavigateChapter(nextChapter.chapterNumber)}
-                className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                  nextChapter ? 'hover:bg-black/10 dark:hover:bg-white/10' : 'opacity-25 cursor-not-allowed'
-                }`}
-                title={nextChapter ? `Next: ${nextChapter.title}` : 'Latest released chapter'}
-                aria-label="Next Chapter"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Bookmark button */}
-            <button
-              onClick={handleToggleBookmark}
-              className={`p-2 rounded-xl border transition-all active:scale-95 ${
-                isBookmarked
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-sm'
-                  : currentThemeStyle.buttonBg
-              }`}
-              title={isBookmarked ? 'Bookmarked in My Shelf' : 'Add to My Shelf (Auto-alerts)'}
-              aria-label="Toggle Bookmark"
-            >
-              <BookmarkIcon className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
-            </button>
-
-            {/* Reading Preferences Popover Toggle */}
-            <div className="relative">
-              <button
-                onClick={() => setShowControls(!showControls)}
-                className={`p-2 rounded-xl border transition-all active:scale-95 ${
-                  showControls
-                    ? 'bg-zinc-800 text-white border-zinc-600 ring-2 ring-amber-400/30'
-                    : currentThemeStyle.buttonBg
-                }`}
-                title="Reading Settings (Font, Size, Theme)"
-                aria-label="Reading Settings"
-              >
-                <Sliders className="w-4 h-4" />
-              </button>
-
-              {showControls && (
-                <div className="absolute right-0 top-13 z-50 animate-in fade-in slide-in-from-top-2">
-                  <ReadingControls
-                    preferences={preferences}
-                    onChangePreferences={handleUpdatePreferences}
-                    onClose={() => setShowControls(false)}
-                  />
-                </div>
-              )}
-            </div>
-
-          </div>
-
-        </div>
-      </header>
-
-      {/* Quick Chapter Selector Drawer Popover */}
-      {showChapterDrawer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#181822] border border-zinc-700/80 max-w-md w-full rounded-2xl max-h-[82vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <span className="font-cinzel text-sm font-bold tracking-wider text-zinc-100 block">
-                  {book.title}
-                </span>
-                <span className="font-mono-space text-[10px] text-zinc-400">
-                  Select a chapter to jump directly
-                </span>
-              </div>
-              <button
-                onClick={() => setShowChapterDrawer(false)}
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="divide-y divide-zinc-800/80 overflow-y-auto p-2">
-              {publishedChapters.map((ch) => (
-                <button
-                  key={ch.id}
-                  onClick={() => {
-                    onNavigateChapter(ch.chapterNumber);
-                    setShowChapterDrawer(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-3 rounded-xl flex items-center justify-between text-xs transition-all my-0.5 ${
-                    ch.chapterNumber === chapter.chapterNumber
-                      ? 'bg-amber-500/15 text-amber-200 font-bold border border-amber-500/30'
-                      : 'text-zinc-300 hover:bg-zinc-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 truncate">
-                    <span className="font-mono-space text-zinc-400 text-[11px] shrink-0">
-                      CH. {ch.chapterNumber < 10 ? `0${ch.chapterNumber}` : ch.chapterNumber}
-                    </span>
-                    <span className="font-cinzel truncate text-sm">{ch.title}</span>
-                  </div>
-                  <span className="font-mono-space text-[10px] text-zinc-400 shrink-0">
-                    {ch.readingTimeMinutes}m
-                  </span>
-                </button>
-              ))}
-            </div>
+      {/* Reading Controls Modal / Popover */}
+      {showControls && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative">
+            <ReadingControls
+              preferences={preferences}
+              onChangePreferences={handleUpdatePreferences}
+              onClose={() => setShowControls(false)}
+            />
           </div>
         </div>
       )}
 
-      {/* Full-viewport reading surface. The paper no longer sits inside a
-          narrow floating card, so the chapter has the entire screen to breathe. */}
+      {/* Full Viewport Reading Canvas (Clean, Distraction-Free Manuscript) */}
       <main
         ref={contentRef}
-        className="w-full min-h-[calc(100dvh-3rem)] px-0 py-0"
+        className="w-full flex-1 px-0 py-0"
         style={{ touchAction: 'pan-y' }}
         onTouchStart={handleReaderTouchStart}
         onTouchMove={handleReaderTouchMove}
         onTouchEnd={handleReaderTouchEnd}
-        onTouchCancel={handleReaderTouchEnd}
-        onWheel={(event) => {
-          if (!event.ctrlKey) return;
-          event.preventDefault();
-          const nextIndex = Math.max(
-            0,
-            Math.min(fontSizeOrder.length - 1, fontSizeIndex + (event.deltaY < 0 ? 1 : -1))
-          );
-          onChangeReaderFontSize(fontSizeOrder[nextIndex]);
-        }}
       >
         <div
-          className="w-full min-h-[calc(100dvh-3rem)] px-5 py-8 sm:px-10 sm:py-12 lg:px-16 lg:py-14 transition-colors duration-300"
+          className="w-full min-h-screen px-5 pt-16 pb-32 sm:px-10 sm:pt-20 lg:px-16 transition-colors duration-300"
           style={{
             backgroundColor: customPageColor,
-            color: customTextColor,
-            borderColor: isDarkPage ? 'rgba(63, 63, 70, 0.4)' : 'rgba(215, 215, 222, 0.7)'
+            color: customTextColor
           }}
         >
           {/* Chapter Narrative Body */}
           <article
-            className={`reader-content-font prose mx-auto w-full max-w-[82ch] ${currentFontClass}`}
+            className="reader-content-font prose mx-auto w-full max-w-[80ch]"
             style={{
               color: customTextColor,
               fontFamily: currentFontFamilyStyle,
@@ -487,37 +269,56 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             } as React.CSSProperties}
           >
             <div
-              className={isLockedPreview ? 'relative' : 'drop-cap'}
+              className={isLocked ? 'relative' : 'drop-cap'}
               style={{ color: customTextColor, '--reader-text-color': customTextColor } as React.CSSProperties}
             >
-              <div dangerouslySetInnerHTML={{ __html: isLockedPreview ? previewContent : chapter.content }} />
+              <div dangerouslySetInnerHTML={{ __html: isLocked ? previewContent : chapter.content }} />
 
-              {isLockedPreview && (
+              {/* Locked Chapter Preview for Chapter 11+ */}
+              {isLocked && (
                 <div className="relative mt-0 -mx-1">
                   <div
-                    className="pointer-events-none h-28 sm:h-36 -mt-24 relative z-10"
+                    className="pointer-events-none h-32 -mt-24 relative z-10"
                     style={{
                       background: `linear-gradient(to bottom, transparent 0%, ${customPageColor} 88%, ${customPageColor} 100%)`
                     }}
                   />
-                  <div className="relative z-20 -mt-8 rounded-2xl border border-amber-500/30 bg-black/80 px-5 py-6 sm:px-8 sm:py-7 text-center shadow-2xl backdrop-blur-md">
-                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/40 bg-amber-400/10">
-                      <span className="text-lg">🔒</span>
+                  <div className="relative z-20 -mt-6 rounded-3xl border border-amber-500/30 bg-[#12131c] px-6 py-8 sm:px-10 sm:py-9 text-center shadow-2xl backdrop-blur-md">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-400/40 bg-amber-400/10 text-amber-300 text-xl shadow-md">
+                      🔒
                     </div>
-                    <p className="font-mono-space text-[10px] uppercase tracking-[0.24em] text-amber-300">
+                    <p className="font-mono-space text-xs uppercase tracking-widest text-amber-300 font-semibold">
                       Chapter {chapter.chapterNumber} is locked
                     </p>
-                    <h2 className="mt-2 font-cinzel text-xl sm:text-2xl font-bold" style={{ color: customTextColor }}>
+                    <h2 className="mt-2 font-sans-clean text-xl sm:text-2xl font-bold text-zinc-100">
                       Continue reading
                     </h2>
-                    <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed opacity-70">
+                    <p className="mx-auto mt-2 max-w-lg text-xs sm:text-sm leading-relaxed text-zinc-400 font-sans-clean">
                       You're reading the public preview. Sign in with Google to unlock the complete chapter and all serialized chapters from Chapter 11 onward.
                     </p>
                     <button
                       onClick={onLoginWithGoogle}
-                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-100 px-6 py-3 text-xs font-mono-space font-bold tracking-wider text-zinc-950 hover:bg-white transition-all active:scale-95"
+                      className="mt-6 inline-flex items-center justify-center gap-2.5 rounded-2xl bg-white px-7 py-3.5 text-xs font-bold tracking-wider text-zinc-950 hover:bg-zinc-100 transition-all active:scale-95 shadow-xl cursor-pointer"
                     >
-                      SIGN IN WITH GOOGLE
+                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>SIGN IN WITH GOOGLE</span>
                     </button>
                   </div>
                 </div>
@@ -525,10 +326,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             </div>
           </article>
 
-          {/* Author's Thoughts intentionally comes after the narrative so the reader
-              reaches the reflection only after experiencing the chapter. */}
-          {!isLockedPreview && preferences.showAuthorsThoughts && chapter.authorsThoughts && (
-            <div className="mt-12 mb-8">
+          {/* Author's Thoughts */}
+          {!isLocked && preferences.showAuthorsThoughts && chapter.authorsThoughts && (
+            <div className="max-w-[80ch] mx-auto mt-12 mb-8">
               <AuthorsThoughts
                 content={chapter.authorsThoughts}
                 authorName={book.author}
@@ -537,74 +337,119 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
             </div>
           )}
 
-          {/* End of Chapter Ornament */}
-          <div className="my-12 text-center">
-            <span className="font-cinzel text-lg tracking-[0.3em] opacity-40">
+          {/* End of Chapter Flourish */}
+          <div className="my-10 text-center">
+            <span className="text-sm tracking-[0.3em] opacity-40">
               — ❦ —
             </span>
           </div>
 
-          {/* Bottom Chapter Navigation Bar */}
-          <div className={`pt-8 border-t ${currentThemeStyle.ruleColor} flex flex-col sm:flex-row items-center justify-between gap-4 font-mono-space text-xs`}>
-            
-            {prevChapter ? (
-              <button
-                onClick={() => onNavigateChapter(prevChapter.chapterNumber)}
-                className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2.5 px-4 py-3 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-current/20 rounded-2xl transition-all active:scale-95"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <div className="text-left">
-                  <span className="block text-[10px] opacity-60">PREVIOUS CHAPTER</span>
-                  <span className="block font-bold truncate max-w-[180px]">
-                    Ch. {prevChapter.chapterNumber}: {prevChapter.title}
-                  </span>
-                </div>
-              </button>
-            ) : (
-              <div className="hidden sm:block" />
-            )}
-
-            <button
-              onClick={onBackToBook}
-              className="px-5 py-2.5 text-center text-xs font-bold tracking-widest border border-current/20 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-95"
-            >
-              TABLE OF CONTENTS
-            </button>
-
-            {nextChapter ? (
-              <button
-                onClick={() => onNavigateChapter(nextChapter.chapterNumber)}
-                className="w-full sm:w-auto flex items-center justify-center sm:justify-end gap-2.5 px-4 py-3 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-current/20 rounded-2xl transition-all active:scale-95"
-              >
-                <div className="text-right">
-                  <span className="block text-[10px] opacity-60">NEXT CHAPTER</span>
-                  <span className="block font-bold truncate max-w-[180px]">
-                    Ch. {nextChapter.chapterNumber}: {nextChapter.title}
-                  </span>
-                </div>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="p-3 text-center sm:text-right text-[11px] opacity-70">
-                You have caught up with all released chapters!
-              </div>
-            )}
-
-          </div>
-
-          {/* Reader Chapter Comments Section (Directly uploaded to Firebase for all readers) */}
-          {!isLockedPreview && <ChapterComments
-            chapterId={chapter.id}
-            bookId={book.id}
-            chapterNumber={chapter.chapterNumber}
-            currentUser={currentUser}
-            onLoginWithGoogle={onLoginWithGoogle}
-            onShowToast={onShowToast}
-            theme={preferences.theme}
-          />}
-
+          {/* Bottom Spacing so content is not obscured by the floating island */}
+          <div className="h-28" />
         </div>
       </main>
+
+      {/* Floating Reader Navigation Island at Bottom */}
+      <div className="fixed bottom-4 left-4 right-4 z-40 max-w-sm mx-auto pointer-events-none">
+        <div className="pointer-events-auto bg-[#0e0f17]/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-2.5 shadow-2xl space-y-1.5">
+          
+          {/* Top Row: < Previous | Chapter Name & % Progress Bar | Next > */}
+          <div className="flex items-center justify-between px-2 py-1 bg-[#151622] rounded-2xl border border-white/5">
+            <button
+              onClick={() => prevChapter && onNavigateChapter(prevChapter.chapterNumber)}
+              disabled={!prevChapter}
+              className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                prevChapter ? 'text-zinc-200 hover:text-white' : 'text-zinc-600 cursor-not-allowed'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Prev</span>
+            </button>
+
+            {/* Center Chapter & Progress */}
+            <div className="flex flex-col items-center min-w-0 px-2">
+              <span className="text-[11px] font-bold text-zinc-200 font-sans-clean truncate">
+                Chapter {chapter.chapterNumber}
+              </span>
+              <div className="flex items-center gap-1.5 w-24 sm:w-28 mt-0.5">
+                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 rounded-full transition-all duration-300"
+                    style={{ width: `${scrollProgress}%` }}
+                  />
+                </div>
+                <span className="text-[9px] font-mono-space text-zinc-400">
+                  {scrollProgress}%
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => nextChapter && onNavigateChapter(nextChapter.chapterNumber)}
+              disabled={!nextChapter}
+              className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                nextChapter ? 'text-zinc-200 hover:text-white' : 'text-zinc-600 cursor-not-allowed'
+              }`}
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Bottom Row: Bookmark & Settings Controls */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={handleToggleBookmark}
+              className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                isBookmarked
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                  : 'bg-[#151622] hover:bg-[#1c1d2c] text-zinc-300 border border-white/5'
+              }`}
+            >
+              <BookmarkIcon className="w-3.5 h-3.5" fill={isBookmarked ? 'currentColor' : 'none'} />
+              <span>{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowControls(true)}
+              className="flex items-center justify-center gap-2 py-2 rounded-xl bg-[#151622] hover:bg-[#1c1d2c] text-zinc-300 border border-white/5 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Chapter Comments Drawer */}
+      {showComments && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowComments(false)} />
+          <div className="relative w-full max-w-md bg-[#0f1017] h-full p-6 shadow-2xl border-l border-white/10 z-10 overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+              <h3 className="font-bold text-base text-zinc-100 font-sans-clean">
+                Chapter Comments
+              </h3>
+              <button
+                onClick={() => setShowComments(false)}
+                className="p-1.5 rounded-lg bg-[#181926] text-zinc-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <ChapterComments
+              chapterId={chapter.id}
+              bookId={book.id}
+              chapterNumber={chapter.chapterNumber}
+              currentUser={currentUser}
+              onLoginWithGoogle={onLoginWithGoogle}
+              onShowToast={onShowToast}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

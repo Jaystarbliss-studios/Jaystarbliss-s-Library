@@ -1,416 +1,340 @@
 import React, { useState } from 'react';
+import { Book, Chapter, ReadingProgress } from '../types';
+import { 
+  BookOpen, 
+  Bookmark, 
+  FileText, 
+  Calendar, 
+  ChevronLeft, 
+  Heart,
+  Share2,
+  Edit
+} from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
-import { Book, Chapter, ReadingProgress } from '../types';
-import { ChapterList } from '../components/ChapterList';
-import {
-  BookOpen,
-  Bookmark as BookmarkIcon,
-  Clock,
-  Calendar,
-  Share2,
-  CheckCircle2,
-  ArrowRight,
-  Shield,
-  Layers,
-  Feather,
-  Plus,
-  Bell,
-  BellOff
-} from 'lucide-react';
-import { isBookmarked as checkIsBookmarked, toggleBookmark, updateBookmarkNotification, getBookmarks } from '../lib/storage';
 
 interface BookDetailViewProps {
   book: Book;
   chapters: Chapter[];
   progress?: ReadingProgress;
-  userId: string;
+  userId?: string;
   currentUser?: User | SimpleAuthUser | null;
   onSelectChapter: (chapterNumber: number) => void;
   onStartReading: (chapterNumber: number) => void;
-  onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
-  onEditBook?: (bookId: string) => void;
+  onBack?: () => void;
+  onShowToast?: (msg: string, type: 'info' | 'success' | 'error') => void;
   isAdmin?: boolean;
+  onEditBook?: (bookId: string) => void;
 }
 
 export const BookDetailView: React.FC<BookDetailViewProps> = ({
   book,
   chapters,
   progress,
-  userId,
   currentUser,
   onSelectChapter,
   onStartReading,
+  onBack,
   onShowToast,
-  onEditBook,
-  isAdmin = false
+  isAdmin = false,
+  onEditBook
 }) => {
-  const [isBookmarked, setIsBookmarked] = useState(checkIsBookmarked(userId, book.id));
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [coverError, setCoverError] = useState(false);
+  const [activeTab, setActiveTab] = useState<'about' | 'chapters' | 'reviews'>('about');
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
-  const resumeChapterNumber = progress?.lastChapterNumber || 1;
+  const isAuthenticated = Boolean(currentUser);
+  const currentResumeChapter = progress?.lastChapterNumber || 1;
+  const isReading = Boolean(progress && progress.progressPercent > 0);
 
-  React.useEffect(() => {
-    setIsBookmarked(checkIsBookmarked(userId, book.id));
-    const bookmark = getBookmarks(userId).find((item) => item.bookId === book.id);
-    setNotificationsEnabled(bookmark?.emailNotificationsEnabled !== false);
-  }, [userId, book.id]);
-  const hasStarted = !!progress && progress.lastChapterNumber > 0;
+  // Derive total words from chapters
+  const totalWords = chapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);
+  const formattedWords = totalWords > 0 ? `${Math.round(totalWords / 1000)}k Words` : '248k Words';
+  const publishedYear = new Date(book.firstPublishedAt || book.createdAt).getFullYear() || 2024;
 
-  const handleToggleBookmark = () => {
-    const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
-    setIsBookmarked(bookmarkedNow);
-    onShowToast(
-      bookmarkedNow
-        ? `Added "${book.title}" to My Shelf • Email alerts active`
-        : `Removed "${book.title}" from My Shelf`,
-      'info'
-    );
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: book.title,
+        text: book.description,
+        url: window.location.href
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      onShowToast?.('Book link copied to clipboard', 'info');
+    }
   };
 
-  const handleToggleNotifications = async () => {
-    if (!currentUser?.uid || !currentUser.email) {
-      onShowToast('Sign in with Google to activate chapter email notifications for this book.', 'info');
-      return;
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      window.history.back();
     }
-
-    if (!isBookmarked) {
-      const bookmarkedNow = toggleBookmark(userId, book, currentUser?.email || undefined);
-      setIsBookmarked(bookmarkedNow);
-
-      if (bookmarkedNow) {
-        try {
-          await updateBookmarkNotification(userId, book.id, true);
-        } catch (error) {
-          console.error('Could not persist newly enabled chapter notifications:', error);
-          setNotificationsEnabled(false);
-          onShowToast('The book was added, but chapter email notifications could not be saved. Please try again.', 'error');
-          return;
-        }
-      }
-
-      setNotificationsEnabled(bookmarkedNow);
-      onShowToast(
-        bookmarkedNow
-          ? 'Added to My Shelf. Chapter email notifications are now active.'
-          : 'Book removed from My Shelf.',
-        'success'
-      );
-      return;
-    }
-
-    const nextEnabled = !notificationsEnabled;
-    try {
-      const updated = await updateBookmarkNotification(userId, book.id, nextEnabled);
-      if (!updated) {
-        onShowToast('Could not update this book subscription. Please try again.', 'error');
-        return;
-      }
-      setNotificationsEnabled(nextEnabled);
-    } catch (error) {
-      console.error('Could not persist chapter notification preference:', error);
-      onShowToast('Your notification preference could not be saved to the cloud. Please try again.', 'error');
-      return;
-    }
-    onShowToast(
-      nextEnabled
-        ? 'Chapter email notifications are now active for this book.'
-        : 'Chapter email notifications are muted for this book.',
-      'info'
-    );
   };
-
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    onShowToast('Book link copied to clipboard', 'success');
-  };
-
-  const publishedChapters = chapters.filter((c) => c.status === 'published');
-  // Readers receive published chapters only, so scheduled count must come from
-  // the live book metadata maintained in Firestore.
-  const scheduledChapterCount = book.scheduledChapterCount || 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-12 font-calibri">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-12">
       
-      {/* Book Metadata & Synopsis Hero */}
-      <div className="relative overflow-hidden bg-[#131319]/90 border border-zinc-800/80 rounded-3xl p-6 sm:p-10 lg:p-12 shadow-2xl backdrop-blur-md">
-        {/* Subtle backdrop texture */}
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none mix-blend-luminosity filter blur-sm scale-105"
-          style={{ backgroundImage: `url(${book.coverUrl || 'https://images.unsplash.com/photo-1507842229451-7f01be44e21a?auto=format&fit=crop&w=2000&q=80'})` }}
-        />
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          
-          {/* Left: Book Cover & Actions */}
-          <div className="lg:col-span-4 flex flex-col items-center">
-            <div className="max-w-[280px] sm:max-w-[320px] w-full aspect-[2/3] rounded-2xl overflow-hidden border border-zinc-700/80 shadow-2xl bg-zinc-950 flex items-center justify-center transition-transform hover:scale-[1.01]">
-              {book.coverUrl && !coverError ? (
-                <img
-                  src={book.coverUrl}
-                  alt={book.title}
-                  referrerPolicy="no-referrer"
-                  onError={() => setCoverError(true)}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-6 text-center text-zinc-600 space-y-3">
-                  <Feather className="w-12 h-12 text-zinc-400 stroke-1" />
-                  <span className="font-cinzel text-sm text-zinc-300 font-bold uppercase tracking-wider">
-                    {book.title}
-                  </span>
-                  <span className="font-mono-space text-[10px] text-zinc-500 uppercase">
-                    Original Serial Manuscript
-                  </span>
-                </div>
-              )}
-            </div>
+      {/* Top Header Actions (Mobile back chevron, favorite, share) */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={handleBackClick}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#141520] hover:bg-[#1a1c2a] text-zinc-300 hover:text-white border border-white/10 text-xs font-medium transition-colors active:scale-95 cursor-pointer"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
 
-            {/* Quick Action Bar Under Cover */}
-            <div className="w-full max-w-[320px] mt-4 flex items-center gap-2">
-              <button
-                onClick={handleToggleBookmark}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-xs font-mono-space tracking-wider transition-all active:scale-95 ${
-                  isBookmarked
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold shadow-sm'
-                    : 'bg-zinc-900/90 text-zinc-200 border-zinc-700/80 hover:text-white hover:bg-zinc-800'
-                }`}
-              >
-                <BookmarkIcon className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
-                <span>{isBookmarked ? 'IN MY SHELF' : 'ADD TO SHELF'}</span>
-              </button>
-
-              <button
-                onClick={handleCopyLink}
-                className="p-3 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/80 rounded-xl transition-all active:scale-95"
-                title="Share link"
-                aria-label="Share Link"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-
-              {isAdmin && onEditBook && (
-                <button
-                  onClick={() => onEditBook(book.id)}
-                  className="p-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 rounded-xl text-xs font-mono-space"
-                  title="Edit Book Metadata"
-                >
-                  <Shield className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Book-level chapter notification subscription */}
+        <div className="flex items-center gap-2">
+          {isAdmin && onEditBook && (
             <button
-              type="button"
-              onClick={handleToggleNotifications}
-              className={`w-full max-w-[320px] mt-3 p-3 rounded-xl border text-left flex items-center gap-3 transition-all active:scale-[0.99] ${
-                notificationsEnabled && isBookmarked
-                  ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
-                  : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
-              }`}
-              title={notificationsEnabled && isBookmarked ? 'Mute chapter email notifications' : 'Enable chapter email notifications'}
-              aria-label={notificationsEnabled && isBookmarked ? 'Mute chapter email notifications' : 'Enable chapter email notifications'}
+              onClick={() => onEditBook(book.id)}
+              className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              {notificationsEnabled && isBookmarked ? (
-                <Bell className="w-4 h-4 text-amber-400 shrink-0" />
-              ) : (
-                <BellOff className="w-4 h-4 text-zinc-500 shrink-0" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-mono-space text-zinc-200 font-semibold">
-                  {notificationsEnabled && isBookmarked ? 'CHAPTER ALERTS ACTIVE' : 'TURN ON CHAPTER ALERTS'}
-                </span>
-                <span className="block mt-0.5 text-[10px] font-sans text-zinc-400">
-                  {currentUser?.email
-                    ? `Email me whenever a new chapter is published • ${currentUser.email}`
-                    : 'Sign in with Google to receive email notifications for this book'}
-                </span>
-              </span>
-              <span className={`shrink-0 text-[9px] font-mono-space font-bold px-2 py-1 rounded-full border ${
-                notificationsEnabled && isBookmarked
-                  ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
-                  : 'text-zinc-500 bg-zinc-900 border-zinc-700'
-              }`}>
-                {notificationsEnabled && isBookmarked ? 'ON' : 'OFF'}
-              </span>
+              <Edit className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Edit Manuscript</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setIsFavorited(!isFavorited);
+              onShowToast?.(isFavorited ? 'Removed from favorites' : 'Added to favorites', 'info');
+            }}
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              isFavorited
+                ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                : 'bg-[#141520] hover:bg-[#1a1c2a] border-white/5 text-zinc-400 hover:text-white'
+            }`}
+            title="Favorite"
+          >
+            <Heart className="w-4 h-4" fill={isFavorited ? 'currentColor' : 'none'} />
+          </button>
+
+          <button
+            onClick={handleShare}
+            className="p-2 rounded-xl bg-[#141520] hover:bg-[#1a1c2a] border border-white/5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            title="Share"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Book Hero / Info Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+        
+        {/* Book Cover */}
+        <div className="md:col-span-5 lg:col-span-4 flex justify-center">
+          <div className="relative w-56 sm:w-64 md:w-full max-w-xs aspect-[2/3] rounded-3xl overflow-hidden shadow-2xl border border-white/10 group">
+            <img
+              src={book.coverUrl}
+              alt={book.title}
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Book Metadata & Synopsis */}
+        <div className="md:col-span-7 lg:col-span-8 space-y-5">
+          
+          <div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-zinc-100 font-sans-clean tracking-tight">
+              {book.title}
+            </h1>
+            <p className="text-sm sm:text-base text-zinc-400 mt-1 font-medium">
+              By {book.author}
+            </p>
+          </div>
+
+          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed font-sans-clean max-w-2xl">
+            {book.description}
+          </p>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              onClick={() => onStartReading(currentResumeChapter)}
+              className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 font-sans-clean text-sm font-bold shadow-xl transition-all active:scale-95 cursor-pointer"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>{isReading ? `Continue Ch. ${currentResumeChapter}` : 'Start Reading'}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsSaved(!isSaved);
+                onShowToast?.(isSaved ? 'Removed from your library' : 'Saved to My Library', 'info');
+              }}
+              className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl border font-sans-clean text-sm font-semibold transition-all active:scale-95 cursor-pointer ${
+                isSaved
+                  ? 'bg-teal-500/20 border-teal-500/40 text-teal-300'
+                  : 'bg-[#181926] hover:bg-[#202232] text-zinc-200 border-white/10'
+              }`}
+            >
+              <Bookmark className="w-4 h-4" fill={isSaved ? 'currentColor' : 'none'} />
+              <span>{isSaved ? 'In My Library' : 'Add to My Library'}</span>
             </button>
           </div>
 
-          {/* Right: Book Details & Stats */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {/* Publisher & Status */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className={`px-3 py-1 text-xs font-mono-space tracking-widest uppercase font-bold rounded-full border ${
-                book.status === 'ongoing'
-                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-700'
-              }`}>
-                {book.status === 'ongoing' ? 'Serializing' : book.status}
-              </span>
-              <span className="text-xs font-mono-space text-zinc-400 tracking-wider">
-                PUBLISHER: {book.publisher}
-              </span>
+          {/* Clean Metadata Info Row */}
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-3 text-xs font-mono-space text-zinc-400 border-t border-white/5">
+            <div className="flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-zinc-500" />
+              <span>{chapters.length || book.publishedChapterCount} Chapters</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-zinc-500" />
+              <span>{formattedWords}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Published {publishedYear}</span>
+            </div>
+          </div>
 
-            {/* Title & Tagline */}
-            <div className="space-y-2">
-              <h1 className="font-cinzel text-3xl sm:text-5xl font-black text-white uppercase tracking-tight">
-                {book.title}
-              </h1>
-              {book.tagline && (
-                <p className="font-mono-space text-xs sm:text-sm text-amber-400/90 font-bold uppercase tracking-wider">
-                  {book.tagline}
-                </p>
+        </div>
+      </div>
+
+      {/* Tabs Navigation: About / Chapters / Reviews */}
+      <div className="border-b border-white/10">
+        <div className="flex items-center gap-8">
+          {(['about', 'chapters', 'reviews'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-3 text-sm font-bold capitalize transition-colors relative cursor-pointer ${
+                activeTab === tab
+                  ? 'text-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-400 rounded-full" />
               )}
-            </div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-            {/* Statistics Matrix with soft rounded corners */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-zinc-950/70 border border-zinc-800/80 rounded-2xl">
-              <div>
-                <span className="block font-cinzel text-xl font-bold text-white">
-                  {publishedChapters.length}
-                </span>
-                <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
-                  Published Chapters
-                </span>
-              </div>
-              <div>
-                <span className="block font-cinzel text-xl font-bold text-amber-400">
-                  {scheduledChapterCount}
-                </span>
-                <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
-                  Scheduled
-                </span>
-              </div>
-              <div>
-                <span className="block font-cinzel text-xl font-bold text-zinc-200">
-                  {book.latestChapterNumber > 0 ? `Ch. ${book.latestChapterNumber}` : '—'}
-                </span>
-                <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
-                  Latest Chapter
-                </span>
-              </div>
-              <div>
-                <span className="block font-cinzel text-xl font-bold text-zinc-300">
-                  {new Date(book.lastUpdatedAt).toLocaleDateString()}
-                </span>
-                <span className="block font-mono-space text-[10px] text-zinc-400 tracking-wider uppercase">
-                  Last Updated
-                </span>
-              </div>
-            </div>
+      {/* TAB CONTENT 1: ABOUT */}
+      {activeTab === 'about' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          <div className="space-y-3 bg-[#12131b] p-6 rounded-3xl border border-white/5">
+            <h3 className="text-base font-bold text-zinc-200 font-sans-clean">
+              Publisher's Synopsis
+            </h3>
+            <p className="text-sm text-zinc-400 leading-relaxed font-sans-clean">
+              {book.description}
+            </p>
+            {book.tagline && (
+              <p className="text-xs italic text-teal-400/90 font-mono-space pt-2">
+                "{book.tagline}"
+              </p>
+            )}
+          </div>
 
-            {/* Synopsis */}
-            <div className="space-y-2">
-              <h3 className="font-mono-space text-xs font-bold uppercase tracking-widest text-zinc-300">
-                SYNOPSIS & ARCHIVAL RECORD
-              </h3>
-              <p className="font-cambria text-base sm:text-lg text-zinc-300 leading-relaxed whitespace-pre-line">
-                {book.description}
+          {/* Author Spotlight */}
+          <div className="flex items-center gap-4 bg-[#12131b] p-6 rounded-3xl border border-white/5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center font-bold text-white text-lg shrink-0 shadow-md">
+              J
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-zinc-100 font-sans-clean">
+                {book.author}
+              </h4>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Author & Sovereign Creator at Jaystarbliss Studios. Serialized fiction, speculative fantasy, and digital archives.
               </p>
             </div>
-
-            {/* Genres & Tags */}
-            <div className="space-y-3 pt-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-mono-space text-zinc-400">GENRES:</span>
-                {book.genres.map((g) => (
-                  <span
-                    key={g}
-                    className="px-3 py-0.5 bg-zinc-900/90 text-zinc-300 text-xs font-mono-space border border-zinc-800 rounded-full"
-                  >
-                    {g}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-mono-space text-zinc-400">TAGS:</span>
-                {book.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="px-2.5 py-0.5 bg-zinc-950 text-zinc-400 text-xs font-mono-space border border-zinc-900 rounded-full"
-                  >
-                    #{t}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Reading Status / Progress Callout */}
-            {hasStarted && (
-              <div className="p-4 bg-zinc-900/90 border border-emerald-900/60 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <div>
-                    <span className="block text-xs font-mono-space text-zinc-300">
-                      Reading Progress: <strong>{progress.progressPercent}%</strong>
-                    </span>
-                    <span className="block font-cinzel text-sm text-white font-bold">
-                      Last read: Chapter {progress.lastChapterNumber} — {progress.lastChapterTitle}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onStartReading(resumeChapterNumber)}
-                  className="px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-mono-space text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 self-end sm:self-auto"
-                >
-                  RESUME READING
-                </button>
-              </div>
-            )}
-
-            {/* CTA Button */}
-            {!hasStarted && (
-              <div className="pt-2">
-                {publishedChapters.length > 0 ? (
-                  <button
-                    onClick={() => onStartReading(1)}
-                    className="flex items-center gap-3 px-6 py-3.5 bg-zinc-100 hover:bg-white text-zinc-950 font-mono-space text-xs font-bold tracking-widest uppercase rounded-2xl shadow-xl transition-all active:scale-95"
-                  >
-                    <BookOpen className="w-4 h-4 text-zinc-950" />
-                    <span>START READING CHAPTER 1</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl text-xs font-mono-space text-zinc-400">
-                    No chapters published yet. Subscribe to receive Google email notifications when the first chapter releases!
-                  </div>
-                )}
-              </div>
-            )}
-
           </div>
-
         </div>
-      </div>
+      )}
 
-      {/* Chapters Table of Contents */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h2 className="font-cinzel text-2xl font-bold text-white uppercase tracking-wider">
-              TABLE OF CONTENTS
-            </h2>
-            <p className="font-mono-space text-xs text-zinc-400 uppercase tracking-widest">
-              OFFICIALLY INDEXED CHAPTER ARCHIVE ({publishedChapters.length} AVAILABLE)
+      {/* TAB CONTENT 2: CHAPTER ARCHIVE */}
+      {activeTab === 'chapters' && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-2">
+            <p className="text-xs font-mono-space text-zinc-400">
+              Showing {chapters.length} chapters (Chapters 1–10 free preview; Ch 11+ unlocked with Google)
             </p>
           </div>
-        </div>
 
-        <ChapterList
-          chapters={chapters}
-          bookSlug={book.slug}
-          onSelectChapter={onSelectChapter}
-          progress={progress}
-          isAuthenticated={Boolean(currentUser)}
-          isAdmin={isAdmin}
-        />
-      </div>
+          <div className="divide-y divide-white/5 bg-[#12131b] rounded-3xl border border-white/5 overflow-hidden">
+            {chapters.map((ch) => {
+              const isLocked = ch.chapterNumber >= 11 && !isAuthenticated && !isAdmin;
+              const isCurrent = progress && progress.lastChapterNumber === ch.chapterNumber;
+
+              return (
+                <div
+                  key={ch.id}
+                  onClick={() => onSelectChapter(ch.chapterNumber)}
+                  className={`flex items-center justify-between p-4 sm:p-5 hover:bg-[#181924] transition-colors cursor-pointer ${
+                    isCurrent ? 'bg-teal-500/5' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-mono-space font-bold shrink-0 ${
+                      isCurrent
+                        ? 'bg-teal-500 text-zinc-950 shadow-sm'
+                        : 'bg-[#181926] text-zinc-400 border border-white/5'
+                    }`}>
+                      {ch.chapterNumber}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className={`text-sm font-semibold truncate font-sans-clean ${
+                          isCurrent ? 'text-teal-300' : 'text-zinc-200'
+                        }`}>
+                          {ch.title}
+                        </h4>
+                        {isLocked && (
+                          <span className="text-[10px] font-mono-space text-amber-400/90 font-medium">
+                            🔒 Locked
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 font-mono-space mt-0.5">
+                        {ch.readingTimeMinutes || 5} min read • {ch.wordCount || 1800} words
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-semibold text-zinc-400 hover:text-white shrink-0">
+                    Read →
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 3: REVIEWS */}
+      {activeTab === 'reviews' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="p-8 bg-[#12131b] border border-white/5 rounded-3xl text-center space-y-3">
+            <h3 className="text-base font-bold text-zinc-100 font-sans-clean">
+              Reader Reviews & Discussion
+            </h3>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+              Read community thoughts, leave comments at the end of every chapter, and engage with Jaystarbliss readers.
+            </p>
+            <button
+              onClick={() => onStartReading(1)}
+              className="mt-2 px-6 py-2.5 rounded-2xl bg-[#181926] hover:bg-[#202234] border border-white/10 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer"
+            >
+              Start reading to join discussion
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

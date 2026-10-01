@@ -1,6 +1,5 @@
 import React from 'react';
-import { Feather, Shield, Heart } from 'lucide-react';
-import libraryXDarkLogo from '../library x - dark theme.png';
+import { BookOpen, Shield, Heart } from 'lucide-react';
 
 interface FooterProps {
   onNavigate: (route: string) => void;
@@ -9,129 +8,85 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
   return (
-    <footer className="border-t border-zinc-800/80 bg-[#0a0a0c] text-zinc-400 font-calibri pt-14 pb-12 mt-auto">
+    <footer className="border-t border-white/5 bg-[#08090d] text-zinc-400 font-sans-clean pt-12 pb-10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
           
           {/* Brand & Mission */}
-          <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <img src={libraryXDarkLogo} alt="Library X" className="h-10 w-auto object-contain" />
-              <span className="font-mono-space text-[10px] tracking-widest text-zinc-400 block uppercase">
-                A DIGITAL PUBLISHING PLATFORM & ARCHIVE
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-sm">
+                <BookOpen className="w-4 h-4 text-zinc-100" />
+              </div>
+              <span className="font-sans-clean font-bold tracking-tight text-zinc-100 text-base">
+                Jaystarbliss Library
               </span>
             </div>
             
-            <p className="text-zinc-400 text-sm leading-relaxed max-w-lg font-cambria italic">
-              "7305 days of living on an earthly definition of hell. An authentic digital archive for serialized memoirs, novels, and literature crafted with unfiltered honesty and architectural restraint."
+            <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-md">
+              A sovereign digital publishing platform and literary archive for serialized fiction, novels, and original literature.
             </p>
             
-            <div className="pt-2 text-xs font-mono-space text-zinc-400">
-              ORIGIN: LAGOS, NIGERIA • ALL WRITTEN WORKS COPYRIGHTED
+            <div className="pt-1 text-[11px] font-mono-space text-zinc-500">
+              ORIGIN: LAGOS, NIGERIA • ALL RIGHTS RESERVED
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="font-mono-space text-xs font-bold uppercase tracking-widest text-zinc-200">
-              EXPLORE ARCHIVE
+          {/* Explore */}
+          <div className="space-y-2.5">
+            <h4 className="font-mono-space text-[11px] font-bold uppercase tracking-wider text-zinc-200">
+              EXPLORE
             </h4>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-xs">
               <li>
-                <button onClick={() => onNavigate('library')} className="hover:text-zinc-200 transition-colors">
-                  Complete Library
+                <button onClick={() => onNavigate('home')} className="hover:text-zinc-200 transition-colors">
+                  Discover Home
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('latest')} className="hover:text-zinc-200 transition-colors">
-                  Latest Chapter Releases
+                <button onClick={() => onNavigate('library')} className="hover:text-zinc-200 transition-colors">
+                  Complete Catalogue
                 </button>
               </li>
               <li>
                 <button onClick={() => onNavigate('genres')} className="hover:text-zinc-200 transition-colors">
-                  Genres & Classifications
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('search')} className="hover:text-zinc-200 transition-colors">
-                  Search Archive
+                  Popular Genres
                 </button>
               </li>
               <li>
                 <button onClick={() => onNavigate('my-library')} className="hover:text-zinc-200 transition-colors">
-                  Bookmarks & History
+                  My Library & Shelf
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Publishing & Administration */}
-          <div className="space-y-3">
-            <h4 className="font-mono-space text-xs font-bold uppercase tracking-widest text-zinc-200">
-              PUBLISHING STUDIO
+          {/* Studio */}
+          <div className="space-y-2.5">
+            <h4 className="font-mono-space text-[11px] font-bold uppercase tracking-wider text-zinc-200">
+              STUDIO
             </h4>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-xs">
               {isAdmin ? (
-                <>
-                  <li>
-                    <button 
-                      onClick={() => onNavigate('admin')} 
-                      className="flex items-center gap-1.5 text-zinc-300 hover:text-white font-medium transition-colors"
-                    >
-                      <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Author Publishing Studio</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => onNavigate('admin/books')} className="hover:text-zinc-200 transition-colors">
-                      Book Management
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => onNavigate('admin/scheduled')} className="hover:text-zinc-200 transition-colors">
-                      Scheduled Daily Releases
-                    </button>
-                  </li>
-                  <li>
-                    <button onClick={() => onNavigate('admin/settings')} className="hover:text-zinc-200 transition-colors">
-                      Publishing Settings
-                    </button>
-                  </li>
-                </>
+                <li>
+                  <button 
+                    onClick={() => onNavigate('admin')} 
+                    className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-medium transition-colors"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Author Studio</span>
+                  </button>
+                </li>
               ) : (
-                <>
-                  <li>
-                    <button 
-                      onClick={() => onNavigate('latest')} 
-                      className="hover:text-zinc-200 transition-colors"
-                    >
-                      Serial Release Schedule
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => onNavigate('my-library')} 
-                      className="hover:text-zinc-200 transition-colors"
-                    >
-                      Personal Reading Shelf
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => onNavigate('home')} 
-                      className="hover:text-zinc-200 transition-colors"
-                    >
-                      Curated Literary Archive
-                    </button>
-                  </li>
-                </>
+                <li>
+                  <span className="text-zinc-400">
+                    Serialized Fiction & Releases
+                  </span>
+                </li>
               )}
-              <li className="pt-2">
-                <span className="text-xs text-zinc-400 block font-mono-space">
-                  Primary Publication:
-                </span>
-                <span className="text-xs text-zinc-300 font-semibold font-mono-space">
-                  TWO DECADES (Vol. 1)
+              <li>
+                <span className="text-zinc-500 font-mono-space text-[11px]">
+                  Chapters 1–10 Free • 11+ Authenticated
                 </span>
               </li>
             </ul>
@@ -140,14 +95,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono-space text-zinc-400">
+        <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono-space text-zinc-500">
           <div>
-            © {new Date().getFullYear()} JAYSTARBLISS STUDIOS. ALL RIGHTS RESERVED.
+            © {new Date().getFullYear()} JAYSTARBLISS STUDIOS. ALL WRITTEN WORKS COPYRIGHTED.
           </div>
-          <div className="flex items-center gap-4">
-            <span>TYPESET IN CAMBRIA & CALIBRI</span>
-            <span>•</span>
-            <span className="text-zinc-400">SERIALIZED DAILY RELEASES</span>
+          <div>
+            GOOD BOOKS. GREATER MINDS.
           </div>
         </div>
       </div>

@@ -22,10 +22,10 @@ function getAdminApp() {
 function buildPublicChapterTeaser(content: unknown, maxWords = 180): string {
   const safeText = typeof content === 'string' ? content : String(content ?? '');
   const safeBlocks = safeText
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, '')
-    .split(/<\\/p>|<\\/div>|<br\\s*\\/?>/gi)
-    .map((block) => block.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim())
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .split(/<\/p>|<\/div>|<br\s*\/?>/gi)
+    .map((block) => block.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
   let wordsUsed = 0;

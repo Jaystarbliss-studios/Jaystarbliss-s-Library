@@ -21,6 +21,12 @@ import {
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MenuDrawer } from './components/MenuDrawer';
+import { ProfileModal } from './components/ProfileModal';
+import { ReadingSettingsModal } from './components/ReadingSettingsModal';
+import { NotificationsModal } from './components/NotificationsModal';
+import { HelpSupportModal } from './components/HelpSupportModal';
+import { SplashLoading } from './components/SplashLoading';
 import { NotificationToast, ToastMessage } from './components/NotificationToast';
 import { AdminSidebar } from './components/AdminSidebar';
 import { AuthModal } from './components/AuthModal';
@@ -67,21 +73,30 @@ import { syncBookmarksWithFirestore, syncProgressWithFirestore, syncLocalBookmar
 const DEFAULT_USER_ID = 'library-x-reader';
 
 export default function App() {
+  // Splash loading state
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+
   // Navigation & Routing state
   const [currentRoute, setCurrentRoute] = useState<string>('home');
-  const [selectedBookSlug, setSelectedBookSlug] = useState<string>('two-decades');
+  const [previousRoute, setPreviousRoute] = useState<string>('home');
+  const [selectedBookSlug, setSelectedBookSlug] = useState<string>('the-whisper-of-shadows');
   const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
-  const [userRole, setUserRole] = useState<'reader' | 'author'>('reader');
 
-  // Reader Library Font state (persisted across library)
+  // Aux Modals state
+  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState<boolean>(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [isReadingSettingsModalOpen, setIsReadingSettingsModalOpen] = useState<boolean>(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState<boolean>(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  // Reader Library Font state
   const [libraryFont, setLibraryFont] = useState<LibraryFont>(() => {
     return (localStorage.getItem('library_x_font') as LibraryFont) || 'serif';
   });
 
-  // Firebase auth & cloud status state
+  // Firebase auth state
   const [firebaseUser, setFirebaseUser] = useState<User | SimpleAuthUser | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
 
   // Admin studio state
   const [adminTab, setAdminTab] = useState<string>('dashboard');
@@ -112,309 +127,159 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleSelectLibraryFont = (font: LibraryFont) => {
-    setLibraryFont(font);
-    localStorage.setItem('library_x_font', font);
-    showToast(`Library font updated to ${font.toUpperCase()}`, 'info');
-  };
-
-  // Refresh user-specific state only.
-  // Books and chapters are canonical Firestore data and are owned by the realtime
-  // listeners below. Never overwrite them from localStorage after a login or refresh,
-  // otherwise a reader can briefly see the cloud catalogue and then lose it.
+  // Refresh Local Data
   const refreshData = useCallback(() => {
     const loadedBookmarks = getBookmarks(activeUserId);
-    const loadedProgress = getReadingProgressList(activeUserId);
-
     setBookmarks(loadedBookmarks);
+
+    const loadedProgress = getReadingProgressList(activeUserId);
     setReadingProgressList(loadedProgress);
+
+    const updates = getLatestUpdates();
+    setLatestUpdates(updates);
+
+    checkAndPublishScheduled();
   }, [activeUserId]);
 
-  // Keep the Latest Updates stream derived from the same canonical books/chapters
-  // shown everywhere else in the public app.
+  // Auth State Listener
   useEffect(() => {
-    const bookMap = new Map(books.map((book) => [book.id, book]));
-    const updates = chapters
-      .filter((chapter) => chapter.status === 'published' && chapter.publishedAt)
-      .map((chapter) => {
-        const book = bookMap.get(chapter.bookId);
-        return book ? {
-          chapter,
-          book,
-          releaseDate: chapter.publishedAt as string
-        } : null;
-      })
-      .filter((item): item is LatestUpdateItem => Boolean(item))
-      .sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime())
-      .slice(0, 20);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        syncUserProfileToFirestore(user).catch((err) =>
+          console.warn('Could not sync user profile to cloud:', err)
+        );
 
-    setLatestUpdates(updates);
-  }, [books, chapters]);
+        try {
+          const cloudBookmarks = await fetchUserBookmarksFromFirestore(user.uid);
+          syncBookmarksWithFirestore(cloudBookmarks);
 
-  // Sync with Firestore on mount and listen to Auth state changes
-  useEffect(() => {
-    // 1. Check if user arrived via Google sign-in redirect
+          const cloudProgress = await fetchUserReadingProgressFromFirestore(user.uid);
+          syncProgressWithFirestore(cloudProgress);
+
+          await syncLocalBookmarksToFirestore(user.uid, cloudBookmarks);
+        } catch (err) {
+          console.warn('Cloud sync error on auth state change:', err);
+        }
+      }
+      refreshData();
+    });
+
     checkRedirectResult().then((user) => {
       if (user) {
         setFirebaseUser(user);
-        const admin = isUserAdmin(user);
-        setUserRole(admin ? 'author' : 'reader');
-        showToast(`Welcome back, ${user.displayName || user.email}! Google account connected.`, 'success');
+        refreshData();
       }
     });
 
-    // 2. Firebase Auth is the only session source. Never restore a local/fake account.
-    // 3. Listen to Firebase Auth state
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setFirebaseUser(user);
-        const admin = isUserAdmin(user);
-        setUserRole(admin ? 'author' : 'reader');
+    return () => unsubscribe();
+  }, [refreshData]);
 
-        // Automatically initialize/sync user account in Firestore
-        try {
-          const profile = await syncUserProfileToFirestore(user);
-          if (admin) {
-            showToast(`Welcome back, Author! Signed in as ${user.email}`, 'success');
-            // Seed canonical data to Firestore if needed
-            seedInitialFirestoreData().catch((err) =>
-              console.warn('Admin Firestore seed check:', err)
-            );
-          } else {
-            showToast(`Welcome, ${profile.displayName}! Reader account created & ready for reading.`, 'info');
-          }
-        } catch (err) {
-          console.warn('User profile sync notice:', err);
-        }
-
-        // Firestore is the source of truth for subscriptions. First recover any
-        // older local shelf bookmarks that were created before cloud sync was
-        // reliable, then fetch the cloud shelf again so the notification state
-        // shown in the UI exactly matches what the server can see.
-        try {
-          const cloudBms = await fetchUserBookmarksFromFirestore(user.uid);
-          if (cloudBms && cloudBms.length > 0) {
-            syncBookmarksWithFirestore(cloudBms);
-          }
-
-          await syncLocalBookmarksToFirestore(user.uid, cloudBms || []);
-
-          const syncedCloudBms = await fetchUserBookmarksFromFirestore(user.uid);
-          if (syncedCloudBms && syncedCloudBms.length > 0) {
-            syncBookmarksWithFirestore(syncedCloudBms);
-          }
-
-          refreshData();
-        } catch (err) {
-          console.warn('Could not sync bookmarks/subscriptions with Firestore:', err);
-        }
-
-        // Fetch user's reading progress from Cloud Firestore
-        try {
-          const cloudProgress = await fetchUserReadingProgressFromFirestore(user.uid);
-          if (cloudProgress && cloudProgress.length > 0) {
-            syncProgressWithFirestore(cloudProgress);
-            refreshData();
-          }
-        } catch (err) {
-          console.warn('Could not sync reading progress from Firestore:', err);
-        }
-      } else {
-        setFirebaseUser(null);
-        setUserRole('reader');
-        if (currentRoute === 'admin' || currentRoute.startsWith('admin')) {
-          setCurrentRoute('home');
-          window.location.hash = 'home';
-        }
-      }
-    });
-
-    // Firestore is the canonical source for books and chapters.
-    // Real-time listeners keep every public view synchronized across browsers/devices.
-    let unsubscribeBooks = () => {};
-    let unsubscribeChapters = () => {};
+  // Live Firestore Listeners for Books & Chapters
+  useEffect(() => {
+    let unsubBooks: () => void = () => {};
+    let unsubChapters: () => void = () => {};
 
     try {
-      unsubscribeBooks = listenToBooks((cloudBooks) => {
-        const publicBooks = cloudBooks.filter((book) => book.visibility === 'published');
-        setBooks(isUserAdmin(auth.currentUser) ? cloudBooks : publicBooks);
-        setIsCloudConnected(true);
-      }, (error) => {
-        console.error('Books realtime sync failed:', error);
-        setIsCloudConnected(false);
+      unsubBooks = listenToBooks((liveBooks) => {
+        if (liveBooks.length > 0) {
+          setBooks(liveBooks);
+        }
       });
 
-      const chapterListener = isUserAdmin(auth.currentUser) || auth.currentUser
-        ? listenToChapters
-        : listenToPublicChapters;
-
-      unsubscribeChapters = chapterListener((cloudChapters) => {
-        const publicChapters = cloudChapters.filter((chapter) => chapter.status === 'published');
-        setChapters(isUserAdmin(auth.currentUser) ? cloudChapters : publicChapters);
-        setIsCloudConnected(true);
-      }, (error) => {
-        console.error('Chapters realtime sync failed:', error);
-        setIsCloudConnected(false);
-      });
+      const userIsAdmin = isUserAdmin(firebaseUser);
+      if (userIsAdmin) {
+        unsubChapters = listenToChapters((liveChapters) => {
+          if (liveChapters.length > 0) {
+            setChapters(liveChapters);
+          }
+        });
+      } else {
+        unsubChapters = listenToPublicChapters((liveChapters) => {
+          if (liveChapters.length > 0) {
+            setChapters(liveChapters);
+          }
+        });
+      }
     } catch (err) {
-      console.error('Could not initialize Firestore catalog listeners:', err);
-      setIsCloudConnected(false);
+      console.warn('Live listener attachment error:', err);
     }
 
     return () => {
-      unsubscribeAuth();
-      unsubscribeBooks();
-      unsubscribeChapters();
+      unsubBooks();
+      unsubChapters();
     };
-  }, [refreshData, showToast, firebaseUser]);
+  }, [firebaseUser]);
 
-  // Initial load and periodic autonomous publishing evaluator (every 30s)
+  // Initial Data Seed & Schedule Check
   useEffect(() => {
+    seedInitialFirestoreData().catch((err) => console.warn('Seed error:', err));
     refreshData();
-    const interval = setInterval(() => {
-      refreshData();
-    }, 30000);
-    return () => clearInterval(interval);
   }, [refreshData]);
 
-  // Handle URL hash navigation for deep linking with strict admin route protection
-  useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (!hash) return;
-
-      if (hash.startsWith('book/')) {
-        const slug = hash.replace('book/', '');
-        setSelectedBookSlug(slug);
-        setCurrentRoute('book');
-      } else if (hash.startsWith('reader/')) {
-        const parts = hash.replace('reader/', '').split('/');
-        if (parts[0]) setSelectedBookSlug(parts[0]);
-        if (parts[1]) setSelectedChapterNumber(parseInt(parts[1]) || 1);
-        setCurrentRoute('reader');
-      } else if (hash === 'admin') {
-        // Enforce admin restriction on URL hash change
-        if (!isUserAdmin(firebaseUser)) {
-          setCurrentRoute('home');
-          window.location.hash = 'home';
-          showToast('Author Studio is strictly reserved for verified author accounts. You are in Reader mode.', 'info');
-          return;
-        }
-        setCurrentRoute('admin');
-      } else if (['home', 'library', 'genres', 'latest', 'search', 'my-library'].includes(hash)) {
-        setCurrentRoute(hash);
-      }
-    };
-
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
-  }, [showToast, firebaseUser]);
-
+  // Routing Handler
   const navigateTo = (route: string) => {
-    if (route.startsWith('admin') && !isUserAdmin(firebaseUser)) {
-      showToast('Author Studio is restricted to verified author accounts. Welcome to Reader Library!', 'info');
-      setCurrentRoute('home');
-      window.location.hash = 'home';
-      return;
+    if (currentRoute !== route && currentRoute !== 'book' && currentRoute !== 'reader') {
+      setPreviousRoute(currentRoute);
     }
     setCurrentRoute(route);
-    window.location.hash = route;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const handleOpenBook = (slug: string) => {
     setSelectedBookSlug(slug);
-    setCurrentRoute('book');
-    window.location.hash = `book/${slug}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateTo('book');
   };
 
-  const handleOpenReader = (bookSlug: string, chapterNumber: number) => {
-    setSelectedBookSlug(bookSlug);
+  const handleOpenReader = (slug: string, chapterNumber: number = 1) => {
+    setSelectedBookSlug(slug);
     setSelectedChapterNumber(chapterNumber);
-    setCurrentRoute('reader');
-    window.location.hash = `reader/${bookSlug}/${chapterNumber}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigateTo('reader');
   };
 
-  // Google Auth actions & Modal controller
-  const handleOpenAuthModal = () => {
-    setIsAuthModalOpen(true);
-  };
-
-  const handleLoginWithGoogle = handleOpenAuthModal;
-
-  const executeGoogleLogin = async () => {
-    const user = await loginWithGoogle();
-    setFirebaseUser(user);
-    const admin = isUserAdmin(user);
-    setUserRole(admin ? 'author' : 'reader');
-    showToast(`Welcome, ${user.displayName || user.email}! Your Google account is connected.`, 'success');
+  const handleToggleBookmark = async (b: Book) => {
+    const added = await toggleBookmark(activeUserId, b);
     refreshData();
+    showToast(added ? `Saved "${b.title}" to My Library` : `Removed "${b.title}" from My Library`, 'info');
+  };
+
+  const handleLoginWithGoogle = async () => {
+    try {
+      const user = await loginWithGoogle();
+      setFirebaseUser(user);
+      refreshData();
+      showToast(`Welcome back, ${user.displayName || 'Reader'}!`, 'success');
+    } catch (error) {
+      console.error('Google Sign-in error:', error);
+      showToast('Could not complete Google Sign-in. Please try again.', 'error');
+    }
   };
 
   const handleLogout = async () => {
-    try {
-      await logoutUser();
-    } catch (err: unknown) {
-      console.warn('Firebase logout notice:', err);
-    }
+    await logoutUser();
     setFirebaseUser(null);
-    setUserRole('reader');
-    if (currentRoute === 'admin' || currentRoute.startsWith('admin')) {
-      setCurrentRoute('home');
-      window.location.hash = 'home';
-    }
-    showToast('Signed out successfully.', 'info');
-  };
-
-  // Bookmark handlers
-  const handleToggleBookmark = (targetBook: Book) => {
-    const isNow = toggleBookmark(activeUserId, targetBook, firebaseUser?.email || undefined);
     refreshData();
-    showToast(
-      isNow
-        ? `Added "${targetBook.title}" to My Shelf • Email notifications enabled`
-        : `Removed "${targetBook.title}" from My Shelf`,
-      'info'
-    );
+    showToast('Signed out successfully', 'info');
   };
 
-  // Chapter editing & admin actions
   const handleSaveChapter = async (ch: Chapter) => {
-    const isNewPublish = ch.status === 'published';
     try {
       await saveChapter(ch);
       refreshData();
-
-      // Send transactional email notifications only after the published chapter
-      // has been confirmed in Firestore. The Vercel API verifies the admin's
-      // Firebase ID token and uses Resend server-side, so the Resend API key
-      // never reaches the browser.
-      if (isNewPublish) {
+      setAdminTab('chapters');
+      showToast(`Chapter ${ch.chapterNumber} saved successfully.`, 'success');
+      if (ch.status === 'published') {
         try {
           const result = await sendChapterNotification(ch.id);
           if (result.sent > 0) {
-            showToast(
-              `Published Ch. ${ch.chapterNumber}! Email notification sent to ${result.sent} reader(s).${result.failed ? ` ${result.failed} could not be sent.` : ''}`,
-              result.failed ? 'info' : 'success'
-            );
-          } else {
-            showToast(
-              'Chapter published. No readers currently have email notifications enabled for this book.',
-              'info'
-            );
+            showToast(`Published Ch. ${ch.chapterNumber}! Email sent to ${result.sent} reader(s).`, 'success');
           }
-        } catch (err) {
-          console.error('Chapter email notification failed:', err);
-          showToast(
-            'Chapter was published, but the reader email notifications could not be sent. Check the Resend/Vercel email configuration.',
-            'error'
-          );
+        } catch (e) {
+          console.error('Notification dispatch error:', e);
         }
       }
     } catch (err) {
+      showToast('Chapter could not be saved to cloud.', 'error');
       throw err;
     }
   };
@@ -424,9 +289,9 @@ export default function App() {
       await saveBook(b);
       refreshData();
       setAdminTab('books');
-      showToast(`Manuscript "${b.title}" saved successfully to the cloud library.`, 'success');
+      showToast(`Book "${b.title}" saved successfully.`, 'success');
     } catch (err) {
-      showToast('Book could not be saved. The cloud database did not confirm the change.', 'error');
+      showToast('Book could not be saved to cloud.', 'error');
       throw err;
     }
   };
@@ -434,42 +299,24 @@ export default function App() {
   const handleDeleteChapter = async (chId: string) => {
     await deleteChapter(chId);
     refreshData();
+    showToast('Chapter deleted', 'info');
   };
 
   const handlePublishNow = async (chId: string) => {
     await publishScheduledNow(chId);
     refreshData();
-    showToast('Chapter published immediately to all readers', 'success');
-
-    const ch = chapters.find((c) => c.id === chId);
-    if (ch) {
-      try {
-        const result = await sendChapterNotification(ch.id);
-        if (result.sent > 0) {
-          showToast(
-            `Dispatched new chapter email to ${result.sent} reader(s).${result.failed ? ` ${result.failed} failed.` : ''}`,
-            result.failed ? 'info' : 'success'
-          );
-        }
-      } catch (err) {
-        console.error('Scheduled chapter email notification failed:', err);
-        showToast('Chapter was published, but its email notifications could not be sent.', 'error');
-      }
-    }
+    showToast('Chapter published immediately', 'success');
   };
 
   const handleCancelSchedule = async (chId: string) => {
     await cancelScheduledRelease(chId);
     refreshData();
+    showToast('Scheduled release cancelled', 'info');
   };
 
+  const isAdmin = isUserAdmin(firebaseUser);
   const scheduledPendingCount = chapters.filter((c) => c.status === 'scheduled').length;
 
-  const isAdmin = isUserAdmin(firebaseUser);
-
-  // Public chapter counts are derived from the same live Firestore chapter
-  // listener used to render readable chapters. This prevents stale book
-  // metadata from making shelves display an old published count.
   const displayBooks = useMemo(() => {
     return books.map((book) => {
       const bookChapters = chapters.filter((chapter) => chapter.bookId === book.id);
@@ -477,7 +324,7 @@ export default function App() {
 
       return {
         ...book,
-        publishedChapterCount: publishedCount,
+        publishedChapterCount: publishedCount || book.publishedChapterCount,
         scheduledChapterCount: isAdmin
           ? bookChapters.filter((chapter) => chapter.status === 'scheduled').length
           : (book.scheduledChapterCount || 0)
@@ -485,56 +332,42 @@ export default function App() {
     });
   }, [books, chapters, isAdmin]);
 
-  // Current entity lookups
   const activeBook = displayBooks.find((b) => b.slug === selectedBookSlug) || displayBooks[0];
   const activeBookChapters = activeBook ? chapters.filter((c) => c.bookId === activeBook.id) : [];
   const activeChapter = activeBookChapters.find((c) => c.chapterNumber === selectedChapterNumber) || activeBookChapters[0];
 
-  // Bookmarks map
-  const bookmarksMap = bookmarks.reduce((acc, bm) => {
-    acc[bm.bookId] = true;
-    return acc;
-  }, {} as Record<string, boolean>);
+  const bookmarksMap = useMemo(() => {
+    return bookmarks.reduce((acc, bm) => {
+      acc[bm.bookId] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+  }, [bookmarks]);
 
-  // Reading progress map
-  const progressMap = readingProgressList.reduce((acc, p) => {
-    acc[p.bookId] = p;
-    return acc;
-  }, {} as Record<string, ReadingProgress>);
-
-  // Repair legacy/stale denormalized counters while an authorized author is
-  // online. Readers continue to receive only published chapter documents.
-  useEffect(() => {
-    if (!isAdmin || books.length === 0) return;
-    reconcileLockedChapterIndex().catch((error) => {
-      console.warn('Could not reconcile locked chapter index:', error);
-    });
-    reconcileBookChapterCounts(books, chapters).catch((error) => {
-      console.warn('Could not reconcile live book chapter counts:', error);
-    });
-  }, [books, chapters, isAdmin]);
+  const progressMap = useMemo(() => {
+    return readingProgressList.reduce((acc, p) => {
+      acc[p.bookId] = p;
+      return acc;
+    }, {} as Record<string, ReadingProgress>);
+  }, [readingProgressList]);
 
   const currentUserProfile: UserProfile = {
     id: activeUserId,
-    email: firebaseUser?.email || (isAdmin ? 'author@libraryx.com' : 'reader@libraryx.com'),
-    displayName: firebaseUser?.displayName || (isAdmin ? 'Author' : 'Reader'),
+    email: firebaseUser?.email || (isAdmin ? 'author@jaystarbliss.com' : 'reader@jaystarbliss.com'),
+    displayName: firebaseUser?.displayName || (isAdmin ? 'Jaystarbliss Author' : 'Reader'),
     role: isAdmin ? 'admin' : 'reader',
     avatarUrl: firebaseUser?.photoURL || undefined,
-    createdAt: '2026-08-01T00:00:00.000Z'
+    createdAt: '2024-01-01T00:00:00.000Z'
   };
 
-  // Global library font class
-  const globalFontClass = {
-    serif: 'font-garamond',
-    newsreader: 'font-newsreader',
-    sans: 'font-sans-clean',
-    mono: 'font-mono-space'
-  }[libraryFont] || 'font-garamond';
-
   return (
-    <div className={`min-h-screen bg-[#09090d] text-zinc-100 flex flex-col ${globalFontClass} selection:bg-amber-400/20 selection:text-amber-200 transition-colors`}>
+    <div className="min-h-screen bg-[#09090d] text-zinc-100 flex flex-col font-sans-clean selection:bg-teal-500/20 selection:text-teal-200 transition-colors">
       
-      {/* Top Main Navigation Header (Hidden inside Reader for pure immersive manuscript focus) */}
+      {/* 0. SPLASH LOADING SCREEN (On Initial Mount) */}
+      {showSplash && (
+        <SplashLoading onComplete={() => setShowSplash(false)} minDurationMs={900} />
+      )}
+
+      {/* 1. TOP NAVIGATION HEADER (Hidden in Reader View) */}
       {currentRoute !== 'reader' && (
         <Header
           currentRoute={currentRoute}
@@ -544,12 +377,16 @@ export default function App() {
           bookmarkCount={bookmarks.length}
           onLoginWithGoogle={handleLoginWithGoogle}
           onLogout={handleLogout}
+          onOpenMenuDrawer={() => setIsMenuDrawerOpen(true)}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
+          onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         />
       )}
 
-      {/* Main App Content Router */}
-      <div className="flex-1">
-        {/* 1. READER VIEW (Full-Screen Immersive Literary Canvas with Comments & Soft Corners) */}
+      {/* 2. MAIN APPLICATION CONTENT ROUTER */}
+      <div className="flex-1 pb-20 md:pb-0">
+        
+        {/* READER VIEW */}
         {currentRoute === 'reader' && activeBook && activeChapter && (
           <ReaderView
             book={activeBook}
@@ -564,7 +401,7 @@ export default function App() {
           />
         )}
 
-        {/* 2. PUBLIC HOMEPAGE */}
+        {/* HOME / DISCOVER */}
         {currentRoute === 'home' && (
           <HomeView
             allBooks={displayBooks}
@@ -581,7 +418,7 @@ export default function App() {
           />
         )}
 
-        {/* 3. PUBLIC LIBRARY CATALOGUE */}
+        {/* BOOKS / COMPLETE CATALOGUE */}
         {currentRoute === 'library' && (
           <LibraryView
             books={displayBooks}
@@ -593,18 +430,16 @@ export default function App() {
           />
         )}
 
-        {/* 4. GENRES & THEMATIC TAGS */}
+        {/* BROWSE / GENRES */}
         {currentRoute === 'genres' && (
           <GenresView
-            books={books}
+            books={displayBooks}
             onSelectBook={handleOpenBook}
-            onFilterGenre={(genre) => {
-              navigateTo('library');
-            }}
+            onFilterGenre={() => navigateTo('library')}
           />
         )}
 
-        {/* 5. LATEST RELEASES STREAM */}
+        {/* LATEST RELEASES */}
         {currentRoute === 'latest' && (
           <LatestUpdatesView
             updates={latestUpdates}
@@ -613,7 +448,7 @@ export default function App() {
           />
         )}
 
-        {/* 6. SEARCH VIEW */}
+        {/* SEARCH ARCHIVE */}
         {currentRoute === 'search' && (
           <SearchView
             onSelectBook={handleOpenBook}
@@ -621,7 +456,7 @@ export default function App() {
           />
         )}
 
-        {/* 7. MY PERSONAL LIBRARY */}
+        {/* MY LIBRARY & SHELF */}
         {currentRoute === 'my-library' && (
           <MyLibraryView
             bookmarks={bookmarks}
@@ -638,22 +473,16 @@ export default function App() {
               try {
                 await updateBookmarkNotification(activeUserId, bId, enabled);
                 refreshData();
-                showToast(
-                  enabled
-                    ? 'Google email notifications active for new chapters'
-                    : 'Google email alerts muted for this book',
-                  'info'
-                );
-              } catch (error) {
-                console.error('Could not persist My Library notification preference:', error);
-                showToast('Your email notification preference could not be saved to the cloud. Please try again.', 'error');
+                showToast(enabled ? 'Email alerts active for new chapters' : 'Email alerts muted for this book', 'info');
+              } catch (e) {
+                showToast('Could not save notification preference', 'error');
               }
             }}
             onExploreLibrary={() => navigateTo('library')}
           />
         )}
 
-        {/* 8. BOOK / NOVEL DETAIL PAGE */}
+        {/* BOOK DETAIL PAGE */}
         {currentRoute === 'book' && activeBook && (
           <BookDetailView
             book={activeBook}
@@ -663,6 +492,10 @@ export default function App() {
             currentUser={firebaseUser}
             onSelectChapter={(chNum) => handleOpenReader(activeBook.slug, chNum)}
             onStartReading={(chNum) => handleOpenReader(activeBook.slug, chNum)}
+            onBack={() => {
+              const target = (previousRoute === 'book' || previousRoute === 'reader') ? 'home' : previousRoute;
+              navigateTo(target);
+            }}
             onShowToast={showToast}
             isAdmin={isAdmin}
             onEditBook={(bId) => {
@@ -673,7 +506,7 @@ export default function App() {
           />
         )}
 
-        {/* 9. AUTHOR PUBLISHING STUDIO (ADMIN - strictly gated to general5242@gmail.com) */}
+        {/* AUTHOR STUDIO (ADMIN) */}
         {currentRoute === 'admin' && (
           isAdmin ? (
             <div className="flex flex-col md:flex-row min-h-[calc(100vh-4.5rem)]">
@@ -691,7 +524,7 @@ export default function App() {
                 pendingScheduledCount={scheduledPendingCount}
               />
 
-              <main className="flex-1 bg-[#09090b] overflow-y-auto">
+              <main className="flex-1 bg-[#09090d] overflow-y-auto">
                 {adminTab === 'dashboard' && (
                   <AdminDashboardView
                     books={books}
@@ -787,17 +620,17 @@ export default function App() {
               </main>
             </div>
           ) : (
-            <div className="max-w-xl mx-auto my-16 p-8 bg-[#131318] border border-zinc-800 rounded-2xl text-center space-y-4 shadow-xl">
+            <div className="max-w-xl mx-auto my-16 p-8 bg-[#12131c] border border-white/10 rounded-3xl text-center space-y-4 shadow-xl">
               <Shield className="w-12 h-12 text-amber-400 mx-auto" />
-              <h2 className="font-cinzel text-xl font-bold uppercase text-white tracking-wide">
-                AUTHOR STUDIO ACCESS RESTRICTED
+              <h2 className="text-xl font-bold uppercase text-white tracking-wide font-sans-clean">
+                Author Studio Access Restricted
               </h2>
-              <p className="font-mono-space text-xs text-zinc-400 leading-relaxed">
-                The Author Studio is strictly reserved for the authorized author accounts (<span className="text-zinc-200 font-semibold">johnrufai242@gmail.com</span> / <span className="text-zinc-200 font-semibold">general5242@gmail.com</span>). Readers do not have publishing privileges.
+              <p className="text-xs text-zinc-400 leading-relaxed font-sans-clean">
+                The Author Studio is strictly reserved for authorized author accounts (johnrufai242@gmail.com).
               </p>
               <button
                 onClick={() => navigateTo('home')}
-                className="px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-mono-space text-xs font-bold rounded-xl transition-all shadow-md active:scale-95"
+                className="px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-bold rounded-2xl transition-all shadow-md active:scale-95"
               >
                 RETURN TO READER LIBRARY
               </button>
@@ -806,32 +639,91 @@ export default function App() {
         )}
       </div>
 
-      {/* Global Literary Footer (Shown on public pages, hidden in Reader & Admin Studio) */}
+      {/* 3. FOOTER (Hidden inside Reader & Admin) */}
       {currentRoute !== 'reader' && currentRoute !== 'admin' && (
         <Footer onNavigate={navigateTo} isAdmin={isAdmin} />
       )}
 
-      {/* Sleek Mobile Bottom Navigation Bar with Soft Styling */}
+      {/* 4. MOBILE FLOATING BOTTOM NAV BAR */}
       <MobileBottomNav
         currentRoute={currentRoute}
         onNavigate={navigateTo}
-        bookmarkCount={bookmarks.length}
-        isAdmin={isAdmin}
-        isLoggedIn={!!firebaseUser}
+        firebaseUser={firebaseUser}
+        currentUser={currentUserProfile}
+        onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
-      {/* Ephemeral Feedback Toast Queue */}
-      <NotificationToast
-        toasts={toasts}
-        onDismiss={handleDismissToast}
+      {/* 5. MOBILE MENU DRAWER */}
+      <MenuDrawer
+        isOpen={isMenuDrawerOpen}
+        onClose={() => setIsMenuDrawerOpen(false)}
+        currentRoute={currentRoute}
+        onNavigate={navigateTo}
+        currentUser={currentUserProfile}
+        firebaseUser={firebaseUser}
+        onLoginWithGoogle={handleLoginWithGoogle}
+        onLogout={handleLogout}
+        onOpenSettings={() => setIsReadingSettingsModalOpen(true)}
+        onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+        onOpenHelp={() => setIsHelpModalOpen(true)}
       />
 
-      {/* Authentication Modal with Google Login, Popup Fallbacks & Fast Access */}
+      {/* 6. PROFILE MODAL */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUserProfile}
+        firebaseUser={firebaseUser}
+        onNavigate={navigateTo}
+        onLoginWithGoogle={handleLoginWithGoogle}
+        onLogout={handleLogout}
+        onOpenSettings={() => setIsReadingSettingsModalOpen(true)}
+        onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+        onOpenHelp={() => setIsHelpModalOpen(true)}
+      />
+
+      {/* 7. READING SETTINGS MODAL */}
+      <ReadingSettingsModal
+        isOpen={isReadingSettingsModalOpen}
+        onClose={() => setIsReadingSettingsModalOpen(false)}
+      />
+
+      {/* 8. NOTIFICATIONS MODAL */}
+      <NotificationsModal
+        isOpen={isNotificationsModalOpen}
+        onClose={() => setIsNotificationsModalOpen(false)}
+        bookmarks={bookmarks}
+        books={books}
+        onToggleBookNotification={async (bId, enabled) => {
+          try {
+            await updateBookmarkNotification(activeUserId, bId, enabled);
+            refreshData();
+            showToast(enabled ? 'Notifications enabled' : 'Notifications muted', 'info');
+          } catch (e) {
+            showToast('Could not save preference', 'error');
+          }
+        }}
+        onShowToast={showToast}
+      />
+
+      {/* 9. HELP & SUPPORT MODAL */}
+      <HelpSupportModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      {/* 10. AUTH MODAL */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onGoogleLogin={executeGoogleLogin}
+        onLoginWithGoogle={handleLoginWithGoogle}
         onShowToast={showToast}
+      />
+
+      {/* 11. FEEDBACK NOTIFICATION TOASTS */}
+      <NotificationToast
+        toasts={toasts}
+        onDismiss={handleDismissToast}
       />
 
     </div>

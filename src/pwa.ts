@@ -11,7 +11,7 @@ export function registerPwa() {
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
-    deferredInstallPrompt = event;
+    deferredInstallPrompt = event as unknown as BeforeInstallPromptEvent;
     window.dispatchEvent(new Event('library-x-install-available'));
   });
 

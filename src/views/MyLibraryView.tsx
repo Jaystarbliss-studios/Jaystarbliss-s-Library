@@ -1,59 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { SimpleAuthUser, db } from '../lib/firebase';
-import { getAllReadingProgress } from '../lib/storage';
-import { Bookmark, ReadingProgress } from '../types';
-import {
-  Bookmark as BookmarkIcon,
-  History,
-  Trash2,
-  ArrowRight,
-  Bell,
+import React, { useState, useMemo } from 'react';
+import { Bookmark, ReadingProgress, Book } from '../types';
+import { 
+  BookOpen, 
+  CheckCircle2, 
+  Clock, 
+  ArrowRight, 
+  Play, 
+  MoreVertical, 
+  Trash2, 
+  Bell, 
   BellOff,
-  LogIn,
-  ShieldCheck
+  Sparkles,
+  Layers
 } from 'lucide-react';
+import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
 
 interface MyLibraryViewProps {
   bookmarks: Bookmark[];
   readingProgressList: ReadingProgress[];
-  firebaseUser: User | SimpleAuthUser | null;
+  firebaseUser?: User | SimpleAuthUser | null;
   onLoginWithGoogle: () => void;
   onSelectBook: (slug: string) => void;
   onSelectChapter: (slug: string, chapterNumber: number) => void;
   onRemoveBookmark: (bookId: string) => void;
-  onToggleNotification: (bookId: string, enabled: boolean) => void;
+  onToggleNotification?: (bookId: string, enabled: boolean) => void;
   onExploreLibrary: () => void;
-}
-
-/**
- * Reading progress can briefly have two representations while a local write is
- * travelling to Firestore. The newest lastReadAt value is the source of truth,
- * and we keep one record per book in the UI so an older snapshot can never make
- * the reader appear to have gone backwards to an earlier chapter.
- */
-function reconcileProgressRecords(records: ReadingProgress[]): ReadingProgress[] {
-  const byBook = new Map<string, ReadingProgress>();
-
-  for (const record of records) {
-    if (!record?.bookId || !record?.userId) continue;
-    const existing = byBook.get(record.bookId);
-    if (!existing) {
-      byBook.set(record.bookId, record);
-      continue;
-    }
-
-    const existingTime = new Date(existing.lastReadAt || 0).getTime();
-    const candidateTime = new Date(record.lastReadAt || 0).getTime();
-    if (candidateTime >= existingTime) {
-      byBook.set(record.bookId, record);
-    }
-  }
-
-  return Array.from(byBook.values()).sort(
-    (a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime()
-  );
 }
 
 export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
@@ -67,240 +39,258 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
   onToggleNotification,
   onExploreLibrary
 }) => {
-  const [activeTab, setActiveTab] = useState<'bookmarks' | 'reading'>('bookmarks');
-  const [liveReadingProgress, setLiveReadingProgress] = useState<ReadingProgress[]>(
-    reconcileProgressRecords(readingProgressList)
-  );
+  const [filterTab, setFilterTab] = useState<'all' | 'reading' | 'completed' | 'wishlist'>('all');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // Keep the progress UI live from both local writes and Firestore. A Firestore
-  // snapshot may arrive with an older value than a just-completed local write,
-  // so always reconcile it with the latest local state instead of replacing it.
-  useEffect(() => {
-    const userId = firebaseUser?.uid;
+  // Merge bookmarks and reading progress into unified shelf items
+  const shelfItems = useMemo(() => {
+    const itemsMap = new Map<string, {
+      bookId: string;
+      slug: string;
+      title: string;
+      coverUrl: string;
+      progress?: ReadingProgress;
+      bookmark?: Bookmark;
+    }>();
 
-    if (!userId) {
-      setLiveReadingProgress(reconcileProgressRecords(readingProgressList));
-      return;
-    }
+    // Add all bookmarks
+    bookmarks.forEach((bm) => {
+      itemsMap.set(bm.bookId, {
+        bookId: bm.bookId,
+        slug: bm.bookSlug,
+        title: bm.bookTitle,
+        coverUrl: bm.bookCoverUrl,
+        bookmark: bm
+      });
+    });
 
-    const progressQuery = query(
-      collection(db, 'readingProgress'),
-      where('userId', '==', userId)
-    );
-
-    const refreshFromLocal = () => {
-      setLiveReadingProgress(reconcileProgressRecords(getAllReadingProgress(userId)));
-    };
-
-    refreshFromLocal();
-
-    const handleLocalProgressUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{ key?: string }>;
-      if (customEvent.detail?.key !== 'jsb_reading_progress') return;
-      refreshFromLocal();
-    };
-
-    window.addEventListener('jsb_library_updated', handleLocalProgressUpdate);
-
-    const unsubscribe = onSnapshot(
-      progressQuery,
-      (snapshot) => {
-        const cloudProgress = snapshot.docs.map((item) => item.data() as ReadingProgress);
-        const localProgress = getAllReadingProgress(userId);
-        setLiveReadingProgress(reconcileProgressRecords([...localProgress, ...cloudProgress]));
-      },
-      (error) => {
-        console.warn('Live reading progress listener unavailable:', error);
-        refreshFromLocal();
+    // Merge reading progress
+    readingProgressList.forEach((p) => {
+      const existing = itemsMap.get(p.bookId);
+      if (existing) {
+        existing.progress = p;
+      } else {
+        itemsMap.set(p.bookId, {
+          bookId: p.bookId,
+          slug: p.bookSlug,
+          title: p.bookTitle,
+          coverUrl: p.bookCoverUrl,
+          progress: p
+        });
       }
-    );
+    });
 
-    return () => {
-      window.removeEventListener('jsb_library_updated', handleLocalProgressUpdate);
-      unsubscribe();
-    };
-  }, [firebaseUser?.uid, readingProgressList]);
+    return Array.from(itemsMap.values());
+  }, [bookmarks, readingProgressList]);
 
-  // Keep the local fallback current when the parent refreshes while signed out.
-  useEffect(() => {
-    if (!firebaseUser?.uid) {
-      setLiveReadingProgress(reconcileProgressRecords(readingProgressList));
-    }
-  }, [readingProgressList, firebaseUser?.uid]);
+  // Filter shelf items by tab
+  const filteredItems = useMemo(() => {
+    return shelfItems.filter((item) => {
+      const isCompleted = item.progress && item.progress.progressPercent >= 100;
+      const isReading = item.progress && item.progress.progressPercent > 0 && !isCompleted;
+      const isWishlist = Boolean(item.bookmark) && (!item.progress || item.progress.progressPercent === 0);
+
+      if (filterTab === 'reading') return isReading;
+      if (filterTab === 'completed') return isCompleted;
+      if (filterTab === 'wishlist') return isWishlist;
+      return true;
+    });
+  }, [shelfItems, filterTab]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 font-calibri">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-              <BookmarkIcon className="w-5 h-5 fill-amber-400/20" />
-            </div>
-            <h1 className="font-cinzel text-2xl sm:text-4xl font-bold tracking-wide text-white uppercase">
-              MY PERSONAL SHELF
-            </h1>
-          </div>
-          <p className="font-mono-space text-xs sm:text-sm text-zinc-400">
-            SAVED MANUSCRIPTS, READING PROGRESS, AND CHAPTER EMAIL NOTIFICATIONS
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-12">
+      
+      {/* Header & Tagline */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-zinc-100 font-sans-clean">
+            My Library
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+            Your books, your journey.
           </p>
         </div>
 
-        {firebaseUser ? (
-          <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-xs font-mono-space self-start md:self-auto shadow-md">
-            {firebaseUser.photoURL ? (
-              <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'Reader'} className="w-7 h-7 rounded-full border border-zinc-700 object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-xs">
-                {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
-              </div>
-            )}
-            <div>
-              <div className="flex items-center gap-1.5 text-zinc-200 font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{firebaseUser.displayName || firebaseUser.email}</span>
-              </div>
-              <span className="text-[10px] text-zinc-500 block truncate max-w-[200px]">{firebaseUser.email}</span>
-            </div>
-          </div>
-        ) : (
-          <button onClick={onLoginWithGoogle} className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-md active:scale-95 self-start md:self-auto">
-            <LogIn className="w-4 h-4 text-zinc-950" />
-            <span>SIGN IN</span>
-          </button>
-        )}
-      </div>
-
-      {!firebaseUser && (
-        <div className="p-5 rounded-2xl bg-[#14141e] border border-zinc-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h4 className="font-cinzel text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <BookmarkIcon className="w-4 h-4 text-zinc-400" />
-              <span>Connect Your Google Account</span>
-            </h4>
-            <p className="text-xs text-zinc-400 font-sans leading-relaxed max-w-xl">
-              Sign in directly with your Google account to automatically assign books to your own library profile, receive email alerts when new chapters are published, and sync reading progress across all your devices.
-            </p>
-          </div>
-          <button onClick={onLoginWithGoogle} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-sm active:scale-95 shrink-0">
-            <LogIn className="w-3.5 h-3.5" />
-            <span>SIGN IN</span>
-          </button>
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {(['all', 'reading', 'completed', 'wishlist'] as const).map((tab) => {
+            const isActive = filterTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setFilterTab(tab)}
+                className={`px-4 py-2 rounded-full text-xs font-semibold capitalize whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-teal-400/20 text-teal-300 border border-teal-400/30 shadow-sm'
+                    : 'bg-[#141520] hover:bg-[#1a1b2a] text-zinc-400 hover:text-white border border-white/5'
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </div>
-      )}
-
-      <div className="flex items-center gap-2 p-1 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 w-fit">
-        <button onClick={() => setActiveTab('bookmarks')} className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${activeTab === 'bookmarks' ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md' : 'text-zinc-400 hover:text-zinc-200'}`}>
-          <BookmarkIcon className="w-3.5 h-3.5" />
-          <span>MY SAVED BOOKS ({bookmarks.length})</span>
-        </button>
-        <button onClick={() => setActiveTab('reading')} className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${activeTab === 'reading' ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md' : 'text-zinc-400 hover:text-zinc-200'}`}>
-          <History className="w-3.5 h-3.5" />
-          <span>READING PROGRESS ({liveReadingProgress.length})</span>
-        </button>
       </div>
 
-      {activeTab === 'bookmarks' && (
-        <div className="space-y-6">
-          {bookmarks.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bookmarks.map((bm) => {
-                const isNotificationsActive = bm.emailNotificationsEnabled !== false;
-                return (
-                  <div key={bm.id} className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-all shadow-lg flex flex-col justify-between">
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-4">
-                        <img src={bm.bookCoverUrl} alt={bm.bookTitle} className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md hover:scale-102 transition-transform" onClick={() => onSelectBook(bm.bookSlug)} />
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                          <span className="text-[10px] font-mono-space text-amber-400 uppercase tracking-wider block font-bold">{bm.bookStatus === 'ongoing' ? 'Serializing' : bm.bookStatus}</span>
-                          <h3 onClick={() => onSelectBook(bm.bookSlug)} className="font-cinzel text-base font-bold text-white hover:text-zinc-200 cursor-pointer line-clamp-2 leading-snug">{bm.bookTitle}</h3>
-                          <span className="text-[11px] font-mono-space text-zinc-500 block">Added {new Date(bm.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
+      {/* Bookshelf Grid */}
+      {filteredItems.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 sm:gap-4 lg:gap-5">
+          {filteredItems.map((item) => {
+            const progress = item.progress;
+            const isCompleted = progress && progress.progressPercent >= 100;
+            const isReading = progress && progress.progressPercent > 0 && !isCompleted;
+            const progressPercent = progress ? Math.round(progress.progressPercent) : 0;
+            const currentChapter = progress?.lastChapterNumber || 1;
+            const isMenuOpen = activeMenuId === item.bookId;
 
-                      <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          {isNotificationsActive ? <Bell className="w-4 h-4 text-amber-400" /> : <BellOff className="w-4 h-4 text-zinc-500" />}
-                          <div>
-                            <span className="text-xs font-mono-space text-zinc-200 block font-semibold">New Chapter Alerts</span>
-                            <span className="text-[10px] text-zinc-400 font-sans block">{firebaseUser?.email ? `To ${firebaseUser.email}` : 'Google email alerts'}</span>
-                          </div>
-                        </div>
-                        <button onClick={() => onToggleNotification(bm.bookId, !isNotificationsActive)} className={`px-3 py-1 text-xs font-mono-space rounded-full border transition-all ${isNotificationsActive ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
-                          {isNotificationsActive ? 'ACTIVE' : 'MUTED'}
+            return (
+              <div
+                key={item.bookId}
+                onClick={() => onSelectBook(item.slug)}
+                className="group relative bg-[#12131b] hover:bg-[#161722] border border-white/5 hover:border-white/15 rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-1"
+              >
+                {/* Book Cover */}
+                <div className="relative aspect-[2/3] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#181924] border border-white/5 mb-3">
+                  <img
+                    src={item.coverUrl}
+                    alt={item.title}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+
+                  {/* Context Menu Action Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuId(isMenuOpen ? null : item.bookId);
+                    }}
+                    className="absolute top-2.5 right-2.5 p-1.5 rounded-xl bg-black/60 text-white/80 hover:text-white backdrop-blur-md transition-colors"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isMenuOpen && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-10 right-2 z-20 w-44 bg-[#181926] border border-white/10 rounded-2xl p-1.5 shadow-2xl space-y-1 animate-in zoom-in-95 duration-100"
+                    >
+                      {item.bookmark && onToggleNotification && (
+                        <button
+                          onClick={() => {
+                            const current = item.bookmark?.emailNotificationsEnabled !== false;
+                            onToggleNotification(item.bookId, !current);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-zinc-300 hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          {item.bookmark.emailNotificationsEnabled !== false ? (
+                            <>
+                              <BellOff className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>Mute Notifications</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bell className="w-3.5 h-3.5 text-teal-400" />
+                              <span>Enable Notifications</span>
+                            </>
+                          )}
                         </button>
-                      </div>
-                    </div>
+                      )}
 
-                    <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3">
-                      <button onClick={() => onRemoveBookmark(bm.bookId)} className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Remove from My Shelf" aria-label="Remove Bookmark">
-                        <Trash2 className="w-4 h-4" />
+                      <button
+                        onClick={() => {
+                          onRemoveBookmark(item.bookId);
+                          setActiveMenuId(null);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove from Shelf</span>
                       </button>
-                      <button onClick={() => onSelectBook(bm.bookSlug)} className="px-4 py-2 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-mono-space tracking-wider border border-zinc-700/80 rounded-xl transition-colors shadow-sm">OPEN BOOK</button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-12 text-center bg-[#131319]/80 border border-zinc-800/80 rounded-2xl space-y-4 max-w-md mx-auto shadow-xl">
-              <BookmarkIcon className="w-10 h-10 text-zinc-600 mx-auto" />
-              <div className="space-y-1.5">
-                <h3 className="font-cinzel text-lg font-bold text-white uppercase">NO SAVED BOOKS IN YOUR SHELF</h3>
-                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">Browse the library catalog and tap the bookmark ribbon to assign books to your account and receive instant Google email chapter notifications.</p>
-              </div>
-              <button onClick={onExploreLibrary} className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95">BROWSE ARCHIVE</button>
-            </div>
-          )}
-        </div>
-      )}
+                  )}
 
-      {activeTab === 'reading' && (
-        <div className="space-y-6">
-          {liveReadingProgress.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {liveReadingProgress.map((prog) => (
-                <div key={prog.id} className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-colors shadow-lg">
-                  <div className="flex items-start gap-4">
-                    <img src={prog.bookCoverUrl} alt={prog.bookTitle} className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md" onClick={() => onSelectBook(prog.bookSlug)} />
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <span className="text-[10px] font-mono-space text-zinc-400 tracking-wider uppercase block">LAST READ: {new Date(prog.lastReadAt).toLocaleDateString()}</span>
-                      <h3 onClick={() => onSelectBook(prog.bookSlug)} className="font-cinzel text-lg font-bold text-white hover:text-zinc-200 cursor-pointer truncate">{prog.bookTitle}</h3>
-                      <p className="font-mono-space text-xs text-amber-400 font-semibold truncate">Chapter {prog.lastChapterNumber} — {prog.lastChapterTitle}</p>
-
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex justify-between text-[11px] font-mono-space text-zinc-400">
-                          <span>Reading Depth</span>
-                          <span>{prog.progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden" aria-label={`Reading progress ${prog.progressPercent}%`}>
-                          <div className="bg-amber-400 h-full rounded-full transition-all duration-200" style={{ width: `${Math.min(100, Math.max(0, prog.progressPercent))}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3">
-                    <button onClick={() => onSelectBook(prog.bookSlug)} className="text-xs font-mono-space text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800/50">Table of Contents</button>
-                    <button onClick={() => onSelectChapter(prog.bookSlug, prog.lastChapterNumber)} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space tracking-wider font-bold rounded-xl shadow-md transition-all active:scale-95">
-                      <span>RESUME CH. {prog.lastChapterNumber}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                  {/* Hover Read Action */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-[2px]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectChapter(item.slug, currentChapter);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white text-zinc-950 font-sans-clean text-xs font-bold shadow-xl"
+                    >
+                      <Play className="w-3 h-3 fill-current" />
+                      <span>{isReading ? `Resume Ch ${currentChapter}` : 'Read'}</span>
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-12 text-center bg-[#131319]/80 border border-zinc-800/80 rounded-2xl space-y-4 max-w-md mx-auto shadow-xl">
-              <History className="w-10 h-10 text-zinc-600 mx-auto" />
-              <div className="space-y-1.5">
-                <h3 className="font-cinzel text-lg font-bold text-white uppercase">NO READING HISTORY RECORDED</h3>
-                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">Start reading any chapter in Library X, and your scroll depth and bookmark position will automatically be saved to your profile.</p>
+
+                {/* Metadata & Progress */}
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-sm sm:text-base text-zinc-100 group-hover:text-teal-300 line-clamp-1 transition-colors font-sans-clean">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-zinc-400 font-medium">
+                    Jaystarbliss
+                  </p>
+
+                  <div className="pt-2">
+                    {isReading ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-mono-space text-zinc-400">
+                          <span className="text-teal-400 font-semibold">{progressPercent}%</span>
+                          <span>Chapter {currentChapter}</span>
+                        </div>
+                        <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 rounded-full"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : isCompleted ? (
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Completed</span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-zinc-500 font-medium">
+                        Not Started
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <button onClick={onExploreLibrary} className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95">START READING</button>
-            </div>
-          )}
+            );
+          })}
+        </div>
+      ) : (
+        /* Empty State Matching Mockup */
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center max-w-sm mx-auto space-y-5 bg-[#12131b] border border-white/5 rounded-3xl shadow-xl">
+          <div className="w-16 h-16 rounded-2xl bg-[#181926] border border-white/10 flex items-center justify-center shadow-lg">
+            <BookOpen className="w-8 h-8 text-zinc-400" strokeWidth={1.5} />
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-bold text-zinc-100 font-sans-clean">
+              Your library is empty
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Start exploring and add your first book to begin your journey.
+            </p>
+          </div>
+
+          <button
+            onClick={onExploreLibrary}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 font-sans-clean text-xs font-bold shadow-lg transition-all active:scale-95"
+          >
+            <span>Browse Books</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
+
     </div>
   );
 };

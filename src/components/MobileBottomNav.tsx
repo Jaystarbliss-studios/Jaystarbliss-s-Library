@@ -1,99 +1,72 @@
 import React from 'react';
-import { BookOpen, Clock, Compass, Search, Bookmark, Shield } from 'lucide-react';
+import { Home, BookOpen, Layers, User as UserIcon } from 'lucide-react';
+import { User } from 'firebase/auth';
+import { SimpleAuthUser } from '../lib/firebase';
+import { UserProfile } from '../types';
 
 interface MobileBottomNavProps {
   currentRoute: string;
   onNavigate: (route: string) => void;
-  bookmarkCount: number;
-  isAdmin: boolean;
-  isLoggedIn?: boolean;
+  firebaseUser?: User | SimpleAuthUser | null;
+  currentUser?: UserProfile;
+  onOpenProfile?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentRoute,
   onNavigate,
-  bookmarkCount,
-  isAdmin,
-  isLoggedIn = false
+  firebaseUser,
+  currentUser,
+  onOpenProfile
 }) => {
-  // Hide in distraction-free reader mode
+  // Hide in Reader View for full immersion
   if (currentRoute === 'reader') return null;
 
   const items = [
-    {
-      id: 'home',
-      label: 'Library',
-      icon: BookOpen,
-      isActive: currentRoute === 'home' || currentRoute === 'library'
-    },
-    {
-      id: 'latest',
-      label: 'Latest',
-      icon: Clock,
-      isActive: currentRoute === 'latest'
-    },
-    {
-      id: 'genres',
-      label: 'Genres',
-      icon: Compass,
-      isActive: currentRoute === 'genres'
-    },
-    {
-      id: 'search',
-      label: 'Search',
-      icon: Search,
-      isActive: currentRoute === 'search'
-    },
-    ...(isLoggedIn ? [{
-      id: 'my-library',
-      label: 'My Shelf',
-      icon: Bookmark,
-      badge: bookmarkCount > 0 ? bookmarkCount : null,
-      isActive: currentRoute === 'my-library'
-    }] : []),
-    ...(isAdmin ? [{
-      id: 'admin',
-      label: 'Studio',
-      icon: Shield,
-      isActive: currentRoute.startsWith('admin')
-    }] : [])
+    { label: 'Home', route: 'home', icon: Home },
+    { label: 'Library', route: 'my-library', icon: BookOpen },
+    { label: 'Genres', route: 'genres', icon: Layers },
+    { label: 'Profile', route: 'profile', icon: UserIcon, isProfile: true }
   ];
 
   return (
-    <nav 
-      aria-label="Mobile Navigation"
-      className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0d0d11]/95 backdrop-blur-xl border-t border-zinc-800/90 px-2 py-1.5 shadow-2xl"
-    >
-      <div className="flex items-center justify-around max-w-md mx-auto">
+    <div className="md:hidden fixed bottom-4 left-4 right-4 z-40 max-w-sm mx-auto pointer-events-none">
+      <nav 
+        aria-label="Mobile Navigation"
+        className="pointer-events-auto bg-[#0e0f17]/95 backdrop-blur-2xl border border-white/10 rounded-full px-3 py-2 shadow-2xl flex items-center justify-around"
+      >
         {items.map((item) => {
+          const isActive = !item.isProfile && (
+            currentRoute === item.route ||
+            (item.route === 'my-library' && currentRoute === 'library')
+          );
+
           const Icon = item.icon;
+
           return (
             <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all relative ${
-                item.isActive
-                  ? 'text-white bg-zinc-800/80 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+              key={item.label}
+              onClick={() => {
+                if (item.isProfile) {
+                  onOpenProfile?.();
+                } else {
+                  onNavigate(item.route);
+                }
+              }}
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all duration-200 ${
+                isActive
+                  ? 'bg-white/15 text-white scale-105 shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200 active:scale-95'
               }`}
             >
-              <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${item.isActive ? 'scale-105 text-zinc-100' : ''}`} />
-                {item.badge !== null && (
-                  <span className="absolute -top-1 -right-2 px-1.5 py-0.2 bg-zinc-700 text-zinc-100 font-mono-space text-[9px] font-bold rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span className={`text-[10px] font-mono-space tracking-wider mt-1 ${
-                item.isActive ? 'font-bold text-white' : 'text-zinc-400'
-              }`}>
+              <Icon className="w-5 h-5" strokeWidth={isActive ? 2.2 : 1.7} />
+              <span className={`text-[10px] tracking-tight mt-0.5 font-medium ${isActive ? 'text-white' : 'text-zinc-400'}`}>
                 {item.label}
               </span>
             </button>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 };

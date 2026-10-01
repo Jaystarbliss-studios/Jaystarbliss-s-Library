@@ -45,9 +45,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {/* Studio Branding */}
         <div className="pb-4 border-b border-zinc-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-sm bg-zinc-900 border border-zinc-700 flex items-center justify-center text-zinc-200">
-              <Feather className="w-4 h-4" />
-            </div>
+            <img 
+              src="/logo-dark.png" 
+              alt="Library X Logo" 
+              className="w-8 h-8 object-contain rounded-md"
+            />
             <div>
               <span className="font-cinzel text-sm font-bold tracking-widest text-zinc-100 block">
                 PUBLISHING STUDIO

@@ -1,31 +1,27 @@
-import React, { useState } from 'react';
-import {
-  BookOpen,
-  Clock,
-  Compass,
-  Bookmark,
-  Search,
-  Shield,
-  Menu,
-  X,
-  LogIn,
-  LogOut
+import React from 'react';
+import { 
+  BookOpen, 
+  Search, 
+  Bell, 
+  Menu, 
+  Bookmark, 
+  LogIn
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
-import { InstallAppButton } from './InstallAppButton';
-import libraryXDarkLogo from '../library x - dark theme.png';
 
 interface HeaderProps {
   currentRoute: string;
-  onNavigate: (route: string, params?: Record<string, string>) => void;
-  currentUser: UserProfile | null;
-  firebaseUser: User | SimpleAuthUser | null;
-  onToggleUserRole?: () => void;
-  bookmarkCount: number;
+  onNavigate: (route: string) => void;
+  currentUser?: UserProfile;
+  firebaseUser?: User | SimpleAuthUser | null;
+  bookmarkCount?: number;
   onLoginWithGoogle: () => void;
   onLogout: () => void;
+  onOpenMenuDrawer?: () => void;
+  onOpenProfile?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,165 +29,127 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   currentUser,
   firebaseUser,
-  bookmarkCount,
+  bookmarkCount = 0,
   onLoginWithGoogle,
-  onLogout
+  onLogout,
+  onOpenMenuDrawer,
+  onOpenProfile,
+  onOpenNotifications
 }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const navLinks = [
-    { label: 'LIBRARY', route: 'library', icon: BookOpen },
-    { label: 'LATEST', route: 'latest', icon: Clock },
-    { label: 'GENRES', route: 'genres', icon: Compass },
-    ...(firebaseUser ? [{ label: 'MY SHELF', route: 'my-library', icon: Bookmark, badge: bookmarkCount > 0 ? bookmarkCount : null }] : []),
-    { label: 'SEARCH', route: 'search', icon: Search }
+    { label: 'Home', route: 'home' },
+    { label: 'Books', route: 'library' },
+    { label: 'Genres', route: 'genres' },
+    { label: 'My Library', route: 'my-library' }
   ];
 
-  const handleNav = (route: string) => {
-    onNavigate(route);
-    setMobileMenuOpen(false);
-  };
-
-  const isAdmin = currentUser?.role === 'admin';
-
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#0d0d12]/95 backdrop-blur-xl border-b border-zinc-800/80 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-        <div onClick={() => handleNav('home')} className="cursor-pointer group flex items-center select-none" aria-label="Library X home">
-          <img src={libraryXDarkLogo} alt="Library X" className="h-9 sm:h-10 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]" />
+    <header className="sticky top-0 z-40 w-full bg-[#09090d]/90 backdrop-blur-xl border-b border-white/5 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between">
+        
+        {/* Left: Brand Logo & Mobile Menu Toggle */}
+        <div className="flex items-center gap-3">
+          {/* Mobile Hamburger Drawer Trigger */}
+          <button
+            onClick={onOpenMenuDrawer}
+            className="md:hidden p-2 rounded-xl bg-[#141520] text-zinc-400 hover:text-white border border-white/5 transition-colors"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Logo & Name */}
+          <div
+            onClick={() => onNavigate('home')}
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-md group-hover:border-teal-500/40 transition-colors">
+              <BookOpen className="w-4.5 h-4.5 text-zinc-100 group-hover:text-teal-400 transition-colors" strokeWidth={1.8} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-sans-clean text-base sm:text-lg font-bold tracking-tight text-zinc-100 group-hover:text-white transition-colors">
+                Jaystarbliss Library
+              </span>
+            </div>
+          </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2" aria-label="Primary navigation">
+        {/* Center: Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Primary navigation">
           {navLinks.map((link) => {
-            const isActive = currentRoute === link.route;
-            const Icon = link.icon;
+            const isActive = currentRoute === link.route || 
+              (link.route === 'library' && currentRoute === 'latest');
+
             return (
               <button
                 key={link.route}
-                onClick={() => handleNav(link.route)}
-                className={`px-3.5 py-2 text-xs font-mono-space font-medium tracking-widest rounded-xl transition-all relative flex items-center gap-2 group cursor-pointer ${
+                onClick={() => onNavigate(link.route)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'text-zinc-100 bg-zinc-800/90 border border-zinc-700/70 shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                    ? 'bg-white/10 text-white font-semibold shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 transition-colors ${isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
-                <span>{link.label}</span>
-                {link.badge !== null && link.badge !== undefined && (
-                  <span className="ml-0.5 text-[10px] text-zinc-500 font-normal" aria-label={`${link.badge} saved books`}>
-                    {link.badge}
-                  </span>
-                )}
+                {link.label}
               </button>
             );
           })}
         </nav>
 
-        <div className="hidden lg:flex items-center gap-3">
-          <InstallAppButton />
-          {firebaseUser ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-mono-space shadow-sm">
-              {firebaseUser.photoURL ? (
-                <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-5 h-5 rounded-full object-cover border border-zinc-700" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center text-[10px] font-bold">
-                  {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
-                </div>
-              )}
-              <span className="text-zinc-200 max-w-[120px] truncate" title={firebaseUser.email || ''}>
-                {firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0]}
-              </span>
-              <button onClick={onLogout} title="Sign out" className="ml-1 text-zinc-500 hover:text-zinc-200 transition-colors p-1" aria-label="Sign out">
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={onLoginWithGoogle} className="flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-wider border rounded-xl transition-all text-zinc-100 border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white shadow-sm active:scale-95">
-              <LogIn className="w-3.5 h-3.5 text-zinc-300" />
-              <span>SIGN IN</span>
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              onClick={() => handleNav('admin')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-mono-space tracking-widest border rounded-xl transition-all active:scale-95 ${
-                currentRoute.startsWith('admin')
-                  ? 'bg-zinc-100 text-zinc-900 border-zinc-100 font-semibold shadow-md'
-                  : 'bg-zinc-800/90 text-zinc-200 border-zinc-700 hover:bg-zinc-700 hover:text-white'
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5 text-zinc-300" />
-              <span>AUTHOR STUDIO</span>
-            </button>
-          )}
-        </div>
-
-        <div className="flex md:hidden items-center gap-1.5">
-          {isAdmin && (
-            <button onClick={() => handleNav('admin')} className="p-2 text-xs font-mono-space bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl" aria-label="Author Studio">
-              <Shield className="w-4 h-4" />
-            </button>
-          )}
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800/50 focus:outline-none" aria-label="Toggle navigation menu" aria-expanded={mobileMenuOpen}>
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {/* Right: Search, Notifications & User Profile */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Search Trigger */}
+          <button
+            onClick={() => onNavigate('search')}
+            className={`p-2.5 rounded-xl border transition-all ${
+              currentRoute === 'search'
+                ? 'bg-white/10 text-white border-white/20 shadow-sm'
+                : 'bg-[#141520] hover:bg-[#1a1c2a] text-zinc-400 hover:text-white border-white/5'
+            }`}
+            title="Search catalog"
+          >
+            <Search className="w-4 h-4" />
           </button>
-        </div>
-      </div>
 
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-3 pt-2.5 pb-4 space-y-1.5 animate-in slide-in-from-top-4">
-          <InstallAppButton className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100 text-xs font-mono-space tracking-wider" />
-          {navLinks.map((link) => {
-            const isActive = currentRoute === link.route;
-            const Icon = link.icon;
-            return (
-              <button
-                key={link.route}
-                onClick={() => handleNav(link.route)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-mono-space tracking-wider transition-colors ${
-                  isActive
-                    ? 'bg-zinc-800 text-white font-bold border border-zinc-700'
-                    : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-zinc-100' : 'text-zinc-400'}`} />
-                  <span>{link.label}</span>
-                </div>
-                {link.badge !== null && link.badge !== undefined && (
-                  <span className="text-[10px] text-zinc-500 font-normal" aria-label={`${link.badge} saved books`}>
-                    {link.badge}
-                  </span>
+          {/* Notifications Bell */}
+          <button
+            onClick={onOpenNotifications}
+            className="p-2.5 rounded-xl bg-[#141520] hover:bg-[#1a1c2a] text-zinc-400 hover:text-white border border-white/5 transition-all relative"
+            title="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+          </button>
+
+          {/* User Profile Avatar / Sign In */}
+          {firebaseUser ? (
+            <button
+              onClick={onOpenProfile}
+              className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl bg-[#141520] hover:bg-[#1a1c2a] border border-white/5 transition-all group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white overflow-hidden shadow-sm">
+                {currentUser?.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                  (currentUser?.displayName || 'U')[0].toUpperCase()
                 )}
-              </button>
-            );
-          })}
-
-          <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col gap-1.5">
-            {firebaseUser ? (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
-                <div className="flex items-center gap-2">
-                  {firebaseUser.photoURL ? (
-                    <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-6 h-6 rounded-full object-cover border border-zinc-700" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-200 text-xs font-bold flex items-center justify-center">
-                      {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-xs text-zinc-300 truncate max-w-[160px]">{firebaseUser.displayName || firebaseUser.email}</span>
-                </div>
-                <button onClick={onLogout} className="text-xs font-mono-space text-zinc-400 hover:text-zinc-100 px-2 py-1 rounded-lg">SIGN OUT</button>
               </div>
-            ) : (
-              <button onClick={onLoginWithGoogle} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-100 text-zinc-950 font-mono-space text-xs font-bold tracking-wider">
-                <LogIn className="w-4 h-4" />
-                <span>SIGN IN</span>
-              </button>
-            )}
-          </div>
+              <span className="hidden lg:inline text-xs font-medium text-zinc-300 group-hover:text-white truncate max-w-[100px]">
+                {currentUser?.displayName?.split(' ')[0] || 'Profile'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={onLoginWithGoogle}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-bold tracking-wide transition-all shadow-md active:scale-95"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">SIGN IN</span>
+            </button>
+          )}
         </div>
-      )}
+
+      </div>
     </header>
   );
 };
