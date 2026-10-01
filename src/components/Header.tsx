@@ -39,7 +39,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Navigation links with icons for Library, Latest, Genres, Search, and My Shelf
   const navLinks = [
     { label: 'LIBRARY', route: 'library', icon: BookOpen },
     { label: 'LATEST', route: 'latest', icon: Clock },
@@ -58,22 +57,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0d0d12]/95 backdrop-blur-xl border-b border-zinc-800/80 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-        
-        {/* Brand Logo */}
-        <div
-          onClick={() => handleNav('home')}
-          className="cursor-pointer group flex items-center select-none"
-          aria-label="Library X home"
-        >
-          <img
-            src={libraryXDarkLogo}
-            alt="Library X"
-            className="h-9 sm:h-10 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]"
-          />
+        <div onClick={() => handleNav('home')} className="cursor-pointer group flex items-center select-none" aria-label="Library X home">
+          <img src={libraryXDarkLogo} alt="Library X" className="h-9 sm:h-10 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.03]" />
         </div>
 
-        {/* Desktop Navigation Links with dedicated icons */}
-        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
+        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2" aria-label="Primary navigation">
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
             const Icon = link.icon;
@@ -90,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <Icon className={`w-3.5 h-3.5 transition-colors ${isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-200'}`} />
                 <span>{link.label}</span>
                 {link.badge !== null && link.badge !== undefined && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] font-bold rounded-full">
+                  <span className="ml-0.5 text-[10px] text-zinc-500 font-normal" aria-label={`${link.badge} saved books`}>
                     {link.badge}
                   </span>
                 )}
@@ -99,20 +87,12 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Right Utility: Install, Google Auth & Studio */}
         <div className="hidden lg:flex items-center gap-3">
           <InstallAppButton />
-          
-          {/* User Account / Auth */}
           {firebaseUser ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs font-mono-space shadow-sm">
               {firebaseUser.photoURL ? (
-                <img 
-                  src={firebaseUser.photoURL} 
-                  alt={firebaseUser.displayName || 'User'} 
-                  className="w-5 h-5 rounded-full object-cover border border-zinc-700"
-                  referrerPolicy="no-referrer"
-                />
+                <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-5 h-5 rounded-full object-cover border border-zinc-700" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center text-[10px] font-bold">
                   {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
@@ -121,26 +101,17 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-zinc-200 max-w-[120px] truncate" title={firebaseUser.email || ''}>
                 {firebaseUser.displayName?.split(' ')[0] || firebaseUser.email?.split('@')[0]}
               </span>
-              <button
-                onClick={onLogout}
-                title="Sign out"
-                className="ml-1 text-zinc-500 hover:text-rose-400 transition-colors p-1"
-                aria-label="Sign out"
-              >
+              <button onClick={onLogout} title="Sign out" className="ml-1 text-zinc-500 hover:text-zinc-200 transition-colors p-1" aria-label="Sign out">
                 <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
-            <button
-              onClick={onLoginWithGoogle}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-wider border rounded-xl transition-all text-zinc-100 border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white shadow-sm active:scale-95"
-            >
+            <button onClick={onLoginWithGoogle} className="flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-wider border rounded-xl transition-all text-zinc-100 border-zinc-700 bg-zinc-900 hover:bg-zinc-800 hover:border-zinc-500 hover:text-white shadow-sm active:scale-95">
               <LogIn className="w-3.5 h-3.5 text-zinc-300" />
               <span>SIGN IN</span>
             </button>
           )}
 
-          {/* Author Studio Navigation (Strictly restricted to verified admin) */}
           {isAdmin && (
             <button
               onClick={() => handleNav('admin')}
@@ -150,37 +121,27 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-zinc-800/90 text-zinc-200 border-zinc-700 hover:bg-zinc-700 hover:text-white'
               }`}
             >
-              <Shield className="w-3.5 h-3.5 text-amber-400" />
+              <Shield className="w-3.5 h-3.5 text-zinc-300" />
               <span>AUTHOR STUDIO</span>
             </button>
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="flex md:hidden items-center gap-2">
+        <div className="flex md:hidden items-center gap-1.5">
           {isAdmin && (
-            <button
-              onClick={() => handleNav('admin')}
-              className="p-2 text-xs font-mono-space bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl"
-              aria-label="Author Studio"
-            >
+            <button onClick={() => handleNav('admin')} className="p-2 text-xs font-mono-space bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-xl" aria-label="Author Studio">
               <Shield className="w-4 h-4" />
             </button>
           )}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800/50 focus:outline-none"
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800/50 focus:outline-none" aria-label="Toggle navigation menu" aria-expanded={mobileMenuOpen}>
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-4">
-          <InstallAppButton className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100 text-xs font-mono-space tracking-wider" />
+        <div className="md:hidden bg-[#121218] border-b border-zinc-800 px-3 pt-2.5 pb-4 space-y-1.5 animate-in slide-in-from-top-4">
+          <InstallAppButton className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-100 text-xs font-mono-space tracking-wider" />
           {navLinks.map((link) => {
             const isActive = currentRoute === link.route;
             const Icon = link.icon;
@@ -188,18 +149,18 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={link.route}
                 onClick={() => handleNav(link.route)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-mono-space tracking-wider transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-mono-space tracking-wider transition-colors ${
                   isActive
                     ? 'bg-zinc-800 text-white font-bold border border-zinc-700'
                     : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <Icon className={`w-4 h-4 ${isActive ? 'text-zinc-100' : 'text-zinc-400'}`} />
                   <span>{link.label}</span>
                 </div>
                 {link.badge !== null && link.badge !== undefined && (
-                  <span className="px-2 py-0.5 bg-zinc-700 text-zinc-200 text-[10px] rounded-full">
+                  <span className="text-[10px] text-zinc-500 font-normal" aria-label={`${link.badge} saved books`}>
                     {link.badge}
                   </span>
                 )}
@@ -207,39 +168,23 @@ export const Header: React.FC<HeaderProps> = ({
             );
           })}
 
-          {/* Mobile Auth Button */}
-          <div className="pt-3 border-t border-zinc-800/80 flex flex-col gap-2">
+          <div className="pt-2.5 border-t border-zinc-800/80 flex flex-col gap-1.5">
             {firebaseUser ? (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-2">
                   {firebaseUser.photoURL ? (
-                    <img 
-                      src={firebaseUser.photoURL} 
-                      alt={firebaseUser.displayName || 'User'} 
-                      className="w-6 h-6 rounded-full object-cover border border-zinc-700"
-                      referrerPolicy="no-referrer"
-                    />
+                    <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-6 h-6 rounded-full object-cover border border-zinc-700" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-200 text-xs font-bold flex items-center justify-center">
                       {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
                     </div>
                   )}
-                  <span className="text-xs text-zinc-300 truncate max-w-[160px]">
-                    {firebaseUser.displayName || firebaseUser.email}
-                  </span>
+                  <span className="text-xs text-zinc-300 truncate max-w-[160px]">{firebaseUser.displayName || firebaseUser.email}</span>
                 </div>
-                <button
-                  onClick={onLogout}
-                  className="text-xs font-mono-space text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-500/10"
-                >
-                  SIGN OUT
-                </button>
+                <button onClick={onLogout} className="text-xs font-mono-space text-zinc-400 hover:text-zinc-100 px-2 py-1 rounded-lg">SIGN OUT</button>
               </div>
             ) : (
-              <button
-                onClick={onLoginWithGoogle}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-zinc-100 text-zinc-950 font-mono-space text-xs font-bold tracking-wider"
-              >
+              <button onClick={onLoginWithGoogle} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-100 text-zinc-950 font-mono-space text-xs font-bold tracking-wider">
                 <LogIn className="w-4 h-4" />
                 <span>SIGN IN</span>
               </button>
