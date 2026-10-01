@@ -31,11 +31,11 @@
 
     <!--
       Reading-progress guard:
-      The app historically allowed an older Firestore snapshot to overwrite a
+      The app previously allowed an older Firestore snapshot to overwrite a
       newer local chapter during authentication sync. Keep the newest local
-      record per book in a tiny browser-side shadow and restore it whenever an
-      older sync attempts to replace it. This makes Resume Reading monotonic:
-      reaching Chapter 20 can never silently roll the reader back to Chapter 2.
+      record per USER + BOOK and restore it whenever an older sync attempts to
+      replace it. This makes Resume Reading monotonic without leaking progress
+      between different reader accounts on the same browser.
     -->
     <script>
       (() => {
@@ -57,13 +57,16 @@
           return Number.isFinite(parsed) ? parsed : 0;
         };
 
-        const newestByBook = (records) => {
+        const identity = (record) => `${record?.userId || ''}::${record?.bookId || ''}`;
+
+        const newestByUserAndBook = (records) => {
           const map = new Map();
           records.forEach((record) => {
-            if (!record || !record.bookId) return;
-            const existing = map.get(record.bookId);
+            if (!record || !record.userId || !record.bookId) return;
+            const key = identity(record);
+            const existing = map.get(key);
             if (!existing || time(record.lastReadAt) >= time(existing.lastReadAt)) {
-              map.set(record.bookId, record);
+              map.set(key, record);
             }
           });
           return Array.from(map.values());
@@ -71,21 +74,23 @@
 
         const persistShadow = (records) => {
           try {
-            localStorage.setItem(SHADOW_KEY, JSON.stringify(newestByBook(records)));
+            localStorage.setItem(SHADOW_KEY, JSON.stringify(newestByUserAndBook(records)));
           } catch (_) {}
         };
 
         const reconcile = () => {
           if (restoring) return;
+
           const current = read(KEY);
           const shadow = read(SHADOW_KEY);
-          const merged = newestByBook([...current, ...shadow]);
+          const merged = newestByUserAndBook([...current, ...shadow]);
+          const currentByIdentity = new Map(
+            newestByUserAndBook(current).map((item) => [identity(item), item])
+          );
 
-          const currentByBook = new Map(newestByBook(current).map((item) => [item.bookId, item]));
           let changed = false;
-
           for (const item of merged) {
-            const currentItem = currentByBook.get(item.bookId);
+            const currentItem = currentByIdentity.get(identity(item));
             if (!currentItem || time(item.lastReadAt) > time(currentItem.lastReadAt)) {
               changed = true;
               break;
@@ -101,6 +106,7 @@
             } finally {
               restoring = false;
             }
+
             window.dispatchEvent(new CustomEvent('jsb_library_updated', {
               detail: { key: KEY, source: 'reading-progress-guard' }
             }));
