@@ -3,13 +3,10 @@ import { User } from 'firebase/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { SimpleAuthUser, db } from '../lib/firebase';
 import { getAllReadingProgress } from '../lib/storage';
-import { Bookmark, ReadingProgress, Book } from '../types';
+import { Bookmark, ReadingProgress } from '../types';
 import {
   Bookmark as BookmarkIcon,
   History,
-  BookOpen,
-  Clock,
-  CheckCircle2,
   Trash2,
   ArrowRight,
   Bell,
@@ -30,6 +27,35 @@ interface MyLibraryViewProps {
   onExploreLibrary: () => void;
 }
 
+/**
+ * Reading progress can briefly have two representations while a local write is
+ * travelling to Firestore. The newest lastReadAt value is the source of truth,
+ * and we keep one record per book in the UI so an older snapshot can never make
+ * the reader appear to have gone backwards to an earlier chapter.
+ */
+function reconcileProgressRecords(records: ReadingProgress[]): ReadingProgress[] {
+  const byBook = new Map<string, ReadingProgress>();
+
+  for (const record of records) {
+    if (!record?.bookId || !record?.userId) continue;
+    const existing = byBook.get(record.bookId);
+    if (!existing) {
+      byBook.set(record.bookId, record);
+      continue;
+    }
+
+    const existingTime = new Date(existing.lastReadAt || 0).getTime();
+    const candidateTime = new Date(record.lastReadAt || 0).getTime();
+    if (candidateTime >= existingTime) {
+      byBook.set(record.bookId, record);
+    }
+  }
+
+  return Array.from(byBook.values()).sort(
+    (a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime()
+  );
+}
+
 export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
   bookmarks,
   readingProgressList,
@@ -42,35 +68,36 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
   onExploreLibrary
 }) => {
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'reading'>('bookmarks');
-  const [liveReadingProgress, setLiveReadingProgress] = useState<ReadingProgress[]>(readingProgressList);
+  const [liveReadingProgress, setLiveReadingProgress] = useState<ReadingProgress[]>(
+    reconcileProgressRecords(readingProgressList)
+  );
 
-  // Keep reading progress live instead of relying on the App's periodic refresh.
-  // Local storage events update this tab immediately; Firestore keeps a signed-in
-  // reader synchronized across tabs/devices.
+  // Keep the progress UI live from both local writes and Firestore. A Firestore
+  // snapshot may arrive with an older value than a just-completed local write,
+  // so always reconcile it with the latest local state instead of replacing it.
   useEffect(() => {
-    if (!firebaseUser?.uid) {
-      setLiveReadingProgress(readingProgressList);
+    const userId = firebaseUser?.uid;
+
+    if (!userId) {
+      setLiveReadingProgress(reconcileProgressRecords(readingProgressList));
       return;
     }
 
-    const userId = firebaseUser.uid;
     const progressQuery = query(
       collection(db, 'readingProgress'),
       where('userId', '==', userId)
     );
 
-    const sortProgress = (items: ReadingProgress[]) =>
-      [...items].sort(
-        (a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime()
-      );
+    const refreshFromLocal = () => {
+      setLiveReadingProgress(reconcileProgressRecords(getAllReadingProgress(userId)));
+    };
 
-    // Render local state immediately so the UI does not wait for Firestore.
-    setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+    refreshFromLocal();
 
     const handleLocalProgressUpdate = (event: Event) => {
       const customEvent = event as CustomEvent<{ key?: string }>;
       if (customEvent.detail?.key !== 'jsb_reading_progress') return;
-      setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+      refreshFromLocal();
     };
 
     window.addEventListener('jsb_library_updated', handleLocalProgressUpdate);
@@ -78,12 +105,13 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
     const unsubscribe = onSnapshot(
       progressQuery,
       (snapshot) => {
-        const cloudProgress = snapshot.docs.map((doc) => doc.data() as ReadingProgress);
-        setLiveReadingProgress(sortProgress(cloudProgress));
+        const cloudProgress = snapshot.docs.map((item) => item.data() as ReadingProgress);
+        const localProgress = getAllReadingProgress(userId);
+        setLiveReadingProgress(reconcileProgressRecords([...localProgress, ...cloudProgress]));
       },
       (error) => {
         console.warn('Live reading progress listener unavailable:', error);
-        setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+        refreshFromLocal();
       }
     );
 
@@ -91,17 +119,17 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
       window.removeEventListener('jsb_library_updated', handleLocalProgressUpdate);
       unsubscribe();
     };
-  }, [firebaseUser?.uid]);
+  }, [firebaseUser?.uid, readingProgressList]);
 
   // Keep the local fallback current when the parent refreshes while signed out.
   useEffect(() => {
-    if (!firebaseUser?.uid) setLiveReadingProgress(readingProgressList);
+    if (!firebaseUser?.uid) {
+      setLiveReadingProgress(reconcileProgressRecords(readingProgressList));
+    }
   }, [readingProgressList, firebaseUser?.uid]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 font-calibri">
-      
-      {/* Header & User Cloud Sync Status */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2.5">
@@ -117,16 +145,10 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
           </p>
         </div>
 
-        {/* Account Sync Pill */}
         {firebaseUser ? (
           <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-xs font-mono-space self-start md:self-auto shadow-md">
             {firebaseUser.photoURL ? (
-              <img
-                src={firebaseUser.photoURL}
-                alt={firebaseUser.displayName || 'Reader'}
-                className="w-7 h-7 rounded-full border border-zinc-700 object-cover"
-                referrerPolicy="no-referrer"
-              />
+              <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'Reader'} className="w-7 h-7 rounded-full border border-zinc-700 object-cover" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-xs">
                 {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
@@ -137,23 +159,17 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{firebaseUser.displayName || firebaseUser.email}</span>
               </div>
-              <span className="text-[10px] text-zinc-500 block truncate max-w-[200px]">
-                {firebaseUser.email}
-              </span>
+              <span className="text-[10px] text-zinc-500 block truncate max-w-[200px]">{firebaseUser.email}</span>
             </div>
           </div>
         ) : (
-          <button
-            onClick={onLoginWithGoogle}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-md active:scale-95 self-start md:self-auto"
-          >
+          <button onClick={onLoginWithGoogle} className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-md active:scale-95 self-start md:self-auto">
             <LogIn className="w-4 h-4 text-zinc-950" />
             <span>SIGN IN</span>
           </button>
         )}
       </div>
 
-      {/* Cloud Account Notice if Not Signed In */}
       {!firebaseUser && (
         <div className="p-5 rounded-2xl bg-[#14141e] border border-zinc-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -165,128 +181,61 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
               Sign in directly with your Google account to automatically assign books to your own library profile, receive email alerts when new chapters are published, and sync reading progress across all your devices.
             </p>
           </div>
-          <button
-            onClick={onLoginWithGoogle}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-sm active:scale-95 shrink-0"
-          >
+          <button onClick={onLoginWithGoogle} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space font-bold tracking-wider transition-all shadow-sm active:scale-95 shrink-0">
             <LogIn className="w-3.5 h-3.5" />
             <span>SIGN IN</span>
           </button>
         </div>
       )}
 
-      {/* Tabs Switcher with Softer Rounded Pills */}
       <div className="flex items-center gap-2 p-1 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 w-fit">
-        <button
-          onClick={() => setActiveTab('bookmarks')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${
-            activeTab === 'bookmarks'
-              ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
+        <button onClick={() => setActiveTab('bookmarks')} className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${activeTab === 'bookmarks' ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md' : 'text-zinc-400 hover:text-zinc-200'}`}>
           <BookmarkIcon className="w-3.5 h-3.5" />
           <span>MY SAVED BOOKS ({bookmarks.length})</span>
         </button>
-
-        <button
-          onClick={() => setActiveTab('reading')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${
-            activeTab === 'reading'
-              ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
+        <button onClick={() => setActiveTab('reading')} className={`flex items-center gap-2 px-4 py-2 text-xs font-mono-space tracking-widest uppercase transition-all rounded-xl ${activeTab === 'reading' ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md' : 'text-zinc-400 hover:text-zinc-200'}`}>
           <History className="w-3.5 h-3.5" />
           <span>READING PROGRESS ({liveReadingProgress.length})</span>
         </button>
       </div>
 
-      {/* Bookmarks Tab Content */}
       {activeTab === 'bookmarks' && (
         <div className="space-y-6">
           {bookmarks.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {bookmarks.map((bm) => {
                 const isNotificationsActive = bm.emailNotificationsEnabled !== false;
-
                 return (
-                  <div
-                    key={bm.id}
-                    className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-all shadow-lg flex flex-col justify-between"
-                  >
+                  <div key={bm.id} className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-all shadow-lg flex flex-col justify-between">
                     <div className="space-y-4">
                       <div className="flex items-start gap-4">
-                        <img
-                          src={bm.bookCoverUrl}
-                          alt={bm.bookTitle}
-                          className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md hover:scale-102 transition-transform"
-                          onClick={() => onSelectBook(bm.bookSlug)}
-                        />
-
+                        <img src={bm.bookCoverUrl} alt={bm.bookTitle} className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md hover:scale-102 transition-transform" onClick={() => onSelectBook(bm.bookSlug)} />
                         <div className="space-y-1.5 min-w-0 flex-1">
-                          <span className="text-[10px] font-mono-space text-amber-400 uppercase tracking-wider block font-bold">
-                            {bm.bookStatus === 'ongoing' ? 'Serializing' : bm.bookStatus}
-                          </span>
-                          <h3
-                            onClick={() => onSelectBook(bm.bookSlug)}
-                            className="font-cinzel text-base font-bold text-white hover:text-zinc-200 cursor-pointer line-clamp-2 leading-snug"
-                          >
-                            {bm.bookTitle}
-                          </h3>
-                          <span className="text-[11px] font-mono-space text-zinc-500 block">
-                            Added {new Date(bm.createdAt).toLocaleDateString()}
-                          </span>
+                          <span className="text-[10px] font-mono-space text-amber-400 uppercase tracking-wider block font-bold">{bm.bookStatus === 'ongoing' ? 'Serializing' : bm.bookStatus}</span>
+                          <h3 onClick={() => onSelectBook(bm.bookSlug)} className="font-cinzel text-base font-bold text-white hover:text-zinc-200 cursor-pointer line-clamp-2 leading-snug">{bm.bookTitle}</h3>
+                          <span className="text-[11px] font-mono-space text-zinc-500 block">Added {new Date(bm.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
 
-                      {/* Google Email Notification Toggle for this Book */}
                       <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          {isNotificationsActive ? (
-                            <Bell className="w-4 h-4 text-amber-400" />
-                          ) : (
-                            <BellOff className="w-4 h-4 text-zinc-500" />
-                          )}
+                          {isNotificationsActive ? <Bell className="w-4 h-4 text-amber-400" /> : <BellOff className="w-4 h-4 text-zinc-500" />}
                           <div>
-                            <span className="text-xs font-mono-space text-zinc-200 block font-semibold">
-                              New Chapter Alerts
-                            </span>
-                            <span className="text-[10px] text-zinc-400 font-sans block">
-                              {firebaseUser?.email ? `To ${firebaseUser.email}` : 'Google email alerts'}
-                            </span>
+                            <span className="text-xs font-mono-space text-zinc-200 block font-semibold">New Chapter Alerts</span>
+                            <span className="text-[10px] text-zinc-400 font-sans block">{firebaseUser?.email ? `To ${firebaseUser.email}` : 'Google email alerts'}</span>
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => onToggleNotification(bm.bookId, !isNotificationsActive)}
-                          className={`px-3 py-1 text-xs font-mono-space rounded-full border transition-all ${
-                            isNotificationsActive
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
-                              : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                          }`}
-                        >
+                        <button onClick={() => onToggleNotification(bm.bookId, !isNotificationsActive)} className={`px-3 py-1 text-xs font-mono-space rounded-full border transition-all ${isNotificationsActive ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
                           {isNotificationsActive ? 'ACTIVE' : 'MUTED'}
                         </button>
                       </div>
                     </div>
 
                     <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3">
-                      <button
-                        onClick={() => onRemoveBookmark(bm.bookId)}
-                        className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                        title="Remove from My Shelf"
-                        aria-label="Remove Bookmark"
-                      >
+                      <button onClick={() => onRemoveBookmark(bm.bookId)} className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Remove from My Shelf" aria-label="Remove Bookmark">
                         <Trash2 className="w-4 h-4" />
                       </button>
-
-                      <button
-                        onClick={() => onSelectBook(bm.bookSlug)}
-                        className="px-4 py-2 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-mono-space tracking-wider border border-zinc-700/80 rounded-xl transition-colors shadow-sm"
-                      >
-                        OPEN BOOK
-                      </button>
+                      <button onClick={() => onSelectBook(bm.bookSlug)} className="px-4 py-2 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-mono-space tracking-wider border border-zinc-700/80 rounded-xl transition-colors shadow-sm">OPEN BOOK</button>
                     </div>
                   </div>
                 );
@@ -296,85 +245,43 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
             <div className="p-12 text-center bg-[#131319]/80 border border-zinc-800/80 rounded-2xl space-y-4 max-w-md mx-auto shadow-xl">
               <BookmarkIcon className="w-10 h-10 text-zinc-600 mx-auto" />
               <div className="space-y-1.5">
-                <h3 className="font-cinzel text-lg font-bold text-white uppercase">
-                  NO SAVED BOOKS IN YOUR SHELF
-                </h3>
-                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">
-                  Browse the library catalog and tap the bookmark ribbon to assign books to your account and receive instant Google email chapter notifications.
-                </p>
+                <h3 className="font-cinzel text-lg font-bold text-white uppercase">NO SAVED BOOKS IN YOUR SHELF</h3>
+                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">Browse the library catalog and tap the bookmark ribbon to assign books to your account and receive instant Google email chapter notifications.</p>
               </div>
-              <button
-                onClick={onExploreLibrary}
-                className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95"
-              >
-                BROWSE ARCHIVE
-              </button>
+              <button onClick={onExploreLibrary} className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95">BROWSE ARCHIVE</button>
             </div>
           )}
         </div>
       )}
 
-      {/* Reading Progress Tab Content */}
       {activeTab === 'reading' && (
         <div className="space-y-6">
           {liveReadingProgress.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {liveReadingProgress.map((prog) => (
-                <div
-                  key={prog.id}
-                  className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-colors shadow-lg"
-                >
+                <div key={prog.id} className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-colors shadow-lg">
                   <div className="flex items-start gap-4">
-                    <img
-                      src={prog.bookCoverUrl}
-                      alt={prog.bookTitle}
-                      className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md"
-                      onClick={() => onSelectBook(prog.bookSlug)}
-                    />
-
+                    <img src={prog.bookCoverUrl} alt={prog.bookTitle} className="w-18 h-26 object-cover rounded-xl border border-zinc-700/80 shrink-0 cursor-pointer shadow-md" onClick={() => onSelectBook(prog.bookSlug)} />
                     <div className="space-y-1.5 flex-1 min-w-0">
-                      <span className="text-[10px] font-mono-space text-zinc-400 tracking-wider uppercase block">
-                        LAST READ: {new Date(prog.lastReadAt).toLocaleDateString()}
-                      </span>
-
-                      <h3
-                        onClick={() => onSelectBook(prog.bookSlug)}
-                        className="font-cinzel text-lg font-bold text-white hover:text-zinc-200 cursor-pointer truncate"
-                      >
-                        {prog.bookTitle}
-                      </h3>
-
-                      <p className="font-mono-space text-xs text-amber-400 font-semibold truncate">
-                        Chapter {prog.lastChapterNumber} — {prog.lastChapterTitle}
-                      </p>
+                      <span className="text-[10px] font-mono-space text-zinc-400 tracking-wider uppercase block">LAST READ: {new Date(prog.lastReadAt).toLocaleDateString()}</span>
+                      <h3 onClick={() => onSelectBook(prog.bookSlug)} className="font-cinzel text-lg font-bold text-white hover:text-zinc-200 cursor-pointer truncate">{prog.bookTitle}</h3>
+                      <p className="font-mono-space text-xs text-amber-400 font-semibold truncate">Chapter {prog.lastChapterNumber} — {prog.lastChapterTitle}</p>
 
                       <div className="space-y-1.5 pt-1">
                         <div className="flex justify-between text-[11px] font-mono-space text-zinc-400">
                           <span>Reading Depth</span>
                           <span>{prog.progressPercent}%</span>
                         </div>
-                        <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-amber-400 h-full rounded-full transition-all"
-                            style={{ width: `${prog.progressPercent}%` }}
-                          />
+                        <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden" aria-label={`Reading progress ${prog.progressPercent}%`}>
+                          <div className="bg-amber-400 h-full rounded-full transition-all duration-200" style={{ width: `${Math.min(100, Math.max(0, prog.progressPercent))}%` }} />
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3">
-                    <button
-                      onClick={() => onSelectBook(prog.bookSlug)}
-                      className="text-xs font-mono-space text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800/50"
-                    >
-                      Table of Contents
-                    </button>
-
-                    <button
-                      onClick={() => onSelectChapter(prog.bookSlug, prog.lastChapterNumber)}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space tracking-wider font-bold rounded-xl shadow-md transition-all active:scale-95"
-                    >
+                    <button onClick={() => onSelectBook(prog.bookSlug)} className="text-xs font-mono-space text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800/50">Table of Contents</button>
+                    <button onClick={() => onSelectChapter(prog.bookSlug, prog.lastChapterNumber)} className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-mono-space tracking-wider font-bold rounded-xl shadow-md transition-all active:scale-95">
                       <span>RESUME CH. {prog.lastChapterNumber}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
@@ -386,24 +293,14 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
             <div className="p-12 text-center bg-[#131319]/80 border border-zinc-800/80 rounded-2xl space-y-4 max-w-md mx-auto shadow-xl">
               <History className="w-10 h-10 text-zinc-600 mx-auto" />
               <div className="space-y-1.5">
-                <h3 className="font-cinzel text-lg font-bold text-white uppercase">
-                  NO READING HISTORY RECORDED
-                </h3>
-                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">
-                  Start reading any chapter in Library X, and your scroll depth and bookmark position will automatically be saved to your profile.
-                </p>
+                <h3 className="font-cinzel text-lg font-bold text-white uppercase">NO READING HISTORY RECORDED</h3>
+                <p className="font-cambria text-sm text-zinc-400 leading-relaxed">Start reading any chapter in Library X, and your scroll depth and bookmark position will automatically be saved to your profile.</p>
               </div>
-              <button
-                onClick={onExploreLibrary}
-                className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95"
-              >
-                START READING
-              </button>
+              <button onClick={onExploreLibrary} className="px-5 py-2.5 bg-zinc-100 text-zinc-950 text-xs font-mono-space font-bold tracking-widest rounded-xl hover:bg-white transition-all shadow-md active:scale-95">START READING</button>
             </div>
           )}
         </div>
       )}
-
     </div>
   );
 };
