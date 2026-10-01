@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { SimpleAuthUser } from '../lib/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { SimpleAuthUser, db } from '../lib/firebase';
+import { getAllReadingProgress } from '../lib/storage';
 import { Bookmark, ReadingProgress, Book } from '../types';
 import {
   Bookmark as BookmarkIcon,
@@ -40,6 +42,61 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
   onExploreLibrary
 }) => {
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'reading'>('bookmarks');
+  const [liveReadingProgress, setLiveReadingProgress] = useState<ReadingProgress[]>(readingProgressList);
+
+  // Keep reading progress live instead of relying on the App's periodic refresh.
+  // Local storage events update this tab immediately; Firestore keeps a signed-in
+  // reader synchronized across tabs/devices.
+  useEffect(() => {
+    if (!firebaseUser?.uid) {
+      setLiveReadingProgress(readingProgressList);
+      return;
+    }
+
+    const userId = firebaseUser.uid;
+    const progressQuery = query(
+      collection(db, 'readingProgress'),
+      where('userId', '==', userId)
+    );
+
+    const sortProgress = (items: ReadingProgress[]) =>
+      [...items].sort(
+        (a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime()
+      );
+
+    // Render local state immediately so the UI does not wait for Firestore.
+    setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+
+    const handleLocalProgressUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ key?: string }>;
+      if (customEvent.detail?.key !== 'jsb_reading_progress') return;
+      setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+    };
+
+    window.addEventListener('jsb_library_updated', handleLocalProgressUpdate);
+
+    const unsubscribe = onSnapshot(
+      progressQuery,
+      (snapshot) => {
+        const cloudProgress = snapshot.docs.map((doc) => doc.data() as ReadingProgress);
+        setLiveReadingProgress(sortProgress(cloudProgress));
+      },
+      (error) => {
+        console.warn('Live reading progress listener unavailable:', error);
+        setLiveReadingProgress(sortProgress(getAllReadingProgress(userId)));
+      }
+    );
+
+    return () => {
+      window.removeEventListener('jsb_library_updated', handleLocalProgressUpdate);
+      unsubscribe();
+    };
+  }, [firebaseUser?.uid]);
+
+  // Keep the local fallback current when the parent refreshes while signed out.
+  useEffect(() => {
+    if (!firebaseUser?.uid) setLiveReadingProgress(readingProgressList);
+  }, [readingProgressList, firebaseUser?.uid]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 font-calibri">
@@ -141,7 +198,7 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
           }`}
         >
           <History className="w-3.5 h-3.5" />
-          <span>READING PROGRESS ({readingProgressList.length})</span>
+          <span>READING PROGRESS ({liveReadingProgress.length})</span>
         </button>
       </div>
 
@@ -260,9 +317,9 @@ export const MyLibraryView: React.FC<MyLibraryViewProps> = ({
       {/* Reading Progress Tab Content */}
       {activeTab === 'reading' && (
         <div className="space-y-6">
-          {readingProgressList.length > 0 ? (
+          {liveReadingProgress.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {readingProgressList.map((prog) => (
+              {liveReadingProgress.map((prog) => (
                 <div
                   key={prog.id}
                   className="p-5 bg-[#131319]/90 border border-zinc-800/80 rounded-2xl space-y-4 hover:border-zinc-700/80 transition-colors shadow-lg"
