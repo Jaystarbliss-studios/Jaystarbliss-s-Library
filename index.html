@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Library X" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/library-polish.css" />
     <title>Library X | Exposed Secrets</title>
     <meta name="description" content="Personal collection and Archive of Jaystarbliss studios" />
     <meta property="og:title" content="Library X | Exposed Secrets" />
@@ -24,106 +25,151 @@
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/Jaystarbliss-studios/Jaystarbliss-s-Library/main/src/library%20x-%20light%20theme.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,300..700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   </head>
   <body class="bg-[#0e0e10] text-[#1a1a1a] antialiased selection:bg-[#1f1f23] selection:text-[#f3f3f3]">
     <div id="root"></div>
 
-    <!--
-      Reading-progress guard:
-      The app previously allowed an older Firestore snapshot to overwrite a
-      newer local chapter during authentication sync. Keep the newest local
-      record per USER + BOOK and restore it whenever an older sync attempts to
-      replace it. This makes Resume Reading monotonic without leaking progress
-      between different reader accounts on the same browser.
-    -->
+    <!-- Reading-progress guard. It preserves the newest USER + BOOK progress
+         when an older cloud snapshot tries to roll the browser backwards. -->
     <script>
       (() => {
         const KEY = 'jsb_reading_progress';
         const SHADOW_KEY = 'jsb_reading_progress_latest';
         let restoring = false;
-
         const read = (key) => {
           try {
             const value = JSON.parse(localStorage.getItem(key) || '[]');
             return Array.isArray(value) ? value : [];
-          } catch (_) {
-            return [];
-          }
+          } catch (_) { return []; }
         };
-
         const time = (value) => {
           const parsed = Date.parse(value || '');
           return Number.isFinite(parsed) ? parsed : 0;
         };
-
         const identity = (record) => `${record?.userId || ''}::${record?.bookId || ''}`;
-
-        const newestByUserAndBook = (records) => {
+        const newest = (records) => {
           const map = new Map();
           records.forEach((record) => {
             if (!record || !record.userId || !record.bookId) return;
             const key = identity(record);
             const existing = map.get(key);
-            if (!existing || time(record.lastReadAt) >= time(existing.lastReadAt)) {
-              map.set(key, record);
-            }
+            if (!existing || time(record.lastReadAt) >= time(existing.lastReadAt)) map.set(key, record);
           });
           return Array.from(map.values());
         };
-
-        const persistShadow = (records) => {
-          try {
-            localStorage.setItem(SHADOW_KEY, JSON.stringify(newestByUserAndBook(records)));
-          } catch (_) {}
+        const shadow = (records) => {
+          try { localStorage.setItem(SHADOW_KEY, JSON.stringify(newest(records))); } catch (_) {}
         };
-
         const reconcile = () => {
           if (restoring) return;
-
           const current = read(KEY);
-          const shadow = read(SHADOW_KEY);
-          const merged = newestByUserAndBook([...current, ...shadow]);
-          const currentByIdentity = new Map(
-            newestByUserAndBook(current).map((item) => [identity(item), item])
-          );
+          const merged = newest([...current, ...read(SHADOW_KEY)]);
+          const currentMap = new Map(newest(current).map((item) => [identity(item), item]));
+          const changed = merged.some((item) => {
+            const currentItem = currentMap.get(identity(item));
+            return !currentItem || time(item.lastReadAt) > time(currentItem.lastReadAt);
+          });
+          shadow(merged);
+          if (!changed) return;
+          restoring = true;
+          try { localStorage.setItem(KEY, JSON.stringify(merged)); }
+          finally { restoring = false; }
+          window.dispatchEvent(new CustomEvent('jsb_library_updated', { detail: { key: KEY, source: 'reading-progress-guard' } }));
+        };
+        shadow(read(KEY));
+        window.addEventListener('jsb_library_updated', (event) => {
+          if (event?.detail?.key === KEY) reconcile();
+        });
+        window.setInterval(reconcile, 1500);
+      })();
+    </script>
 
-          let changed = false;
-          for (const item of merged) {
-            const currentItem = currentByIdentity.get(identity(item));
-            if (!currentItem || time(item.lastReadAt) > time(currentItem.lastReadAt)) {
-              changed = true;
-              break;
-            }
-          }
+    <!-- Reference-inspired reader dock. It is deliberately DOM-level so the
+         reading article itself is untouched; existing React controls remain the
+         source of truth for navigation, bookmarks and reader settings. -->
+    <script>
+      (() => {
+        let dock = null;
+        let observer = null;
 
-          persistShadow(merged);
-
-          if (changed) {
-            restoring = true;
-            try {
-              localStorage.setItem(KEY, JSON.stringify(merged));
-            } finally {
-              restoring = false;
-            }
-
-            window.dispatchEvent(new CustomEvent('jsb_library_updated', {
-              detail: { key: KEY, source: 'reading-progress-guard' }
-            }));
-          }
+        const icon = (name) => {
+          const icons = {
+            prev: '<path d="m15 18-6-6 6-6"/><path d="M9 12h10"/>',
+            next: '<path d="m9 18 6-6-6-6"/><path d="M5 12h10"/>',
+            bookmark: '<path d="M6 4.5A2.5 2.5 0 0 1 8.5 2h7A2.5 2.5 0 0 1 18 4.5V21l-6-3.5L6 21Z"/>',
+            settings: '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.5 1.5-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V20h-2v-.4a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.5-1.5.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H6v-2h.4a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L9 7.5l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V6h2v.4a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.5 1.5-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.4v2h-.4a1.7 1.7 0 0 0-1.5 1Z"/>'
+          };
+          return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
         };
 
-        // Capture the latest known progress before React/Firebase boot.
-        persistShadow(read(KEY));
+        const existing = (selector) => document.querySelector(selector);
+        const clickExisting = (selector) => {
+          const button = existing(selector);
+          if (button && !button.disabled) button.click();
+        };
 
-        window.addEventListener('jsb_library_updated', (event) => {
-          const key = event && event.detail ? event.detail.key : null;
-          if (key === KEY) reconcile();
-        });
+        const update = () => {
+          if (!dock) return;
+          const total = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+          const percent = Math.min(100, Math.max(0, (window.scrollY / total) * 100));
+          dock.style.setProperty('--lx-reader-progress', String(percent / 100));
+          const title = existing('header span')?.textContent || '';
+          const match = title.match(/CH\.\s*(\d+)/i);
+          const chapter = match ? match[1] : '—';
+          const label = dock.querySelector('[data-reader-chapter]');
+          if (label) label.textContent = `CH. ${chapter}`;
+        };
 
-        // Also protect against code that mutates localStorage without dispatching
-        // the application's custom event.
-        window.setInterval(reconcile, 1500);
+        const mount = () => {
+          const reader = existing('.reader-content-font');
+          if (!reader) {
+            if (dock) { dock.remove(); dock = null; }
+            return;
+          }
+          if (dock) { update(); return; }
+
+          dock = document.createElement('div');
+          dock.className = 'lx-reader-dock';
+          dock.setAttribute('aria-label', 'Reader controls');
+          dock.innerHTML = `
+            <div class="lx-reader-dock-progress"></div>
+            <button type="button" data-reader-action="prev" aria-label="Previous chapter" title="Previous chapter">
+              ${icon('prev')}
+            </button>
+            <div class="lx-reader-dock-spacer"></div>
+            <button type="button" class="lx-reader-dock-main" data-reader-chapter aria-label="Current chapter">CH. —</button>
+            <div class="lx-reader-dock-spacer"></div>
+            <button type="button" data-reader-action="next" aria-label="Next chapter" title="Next chapter">
+              ${icon('next')}
+            </button>
+            <button type="button" data-reader-action="bookmark" aria-label="Bookmark book" title="Bookmark book">
+              ${icon('bookmark')}
+            </button>
+            <button type="button" data-reader-action="settings" aria-label="Reading settings" title="Reading settings">
+              ${icon('settings')}
+            </button>
+          `;
+
+          dock.addEventListener('click', (event) => {
+            const button = event.target.closest('button');
+            if (!button) return;
+            const action = button.dataset.readerAction;
+            if (action === 'prev') clickExisting('button[aria-label="Previous Chapter"]');
+            if (action === 'next') clickExisting('button[aria-label="Next Chapter"]');
+            if (action === 'bookmark') clickExisting('button[aria-label="Toggle Bookmark"]');
+            if (action === 'settings') clickExisting('button[aria-label="Reading Settings"]');
+          });
+
+          document.body.appendChild(dock);
+          update();
+        };
+
+        window.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update, { passive: true });
+        observer = new MutationObserver(mount);
+        observer.observe(document.getElementById('root'), { childList: true, subtree: true });
+        mount();
       })();
     </script>
 
