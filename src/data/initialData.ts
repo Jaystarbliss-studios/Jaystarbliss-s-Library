@@ -1,14 +1,14 @@
 import { Book, Chapter, LibrarySettings } from '../types';
 
 export const INITIAL_SETTINGS: LibrarySettings = {
-  siteTitle: "Jaystarbliss Library",
+  siteTitle: "Library X",
   siteDescription: "Digital publishing platform and personal literary archive for serialized novels, memoirs, and original works.",
   authorName: "Jaystarbliss",
   publisherName: "Jaystarbliss Studios",
   defaultTimezone: "Africa/Lagos (WAT)",
   contactEmail: "johnrufai242@gmail.com",
   tagline: "Good books. Greater minds.",
-  announcement: "Welcome to Jaystarbliss Library. Explore serialized stories, track your reading, and unlock new releases."
+  announcement: "Welcome to Library X. Explore serialized stories, track your reading, and unlock new releases."
 };
 
 // Curated default books representing the Jaystarbliss literary collection

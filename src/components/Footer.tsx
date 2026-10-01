@@ -19,7 +19,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
                 <BookOpen className="w-4 h-4 text-zinc-100" />
               </div>
               <span className="font-sans-clean font-bold tracking-tight text-zinc-100 text-base">
-                Jaystarbliss Library
+                Library X
               </span>
             </div>
             

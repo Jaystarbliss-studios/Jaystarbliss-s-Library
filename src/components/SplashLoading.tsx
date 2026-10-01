@@ -59,11 +59,8 @@ export const SplashLoading: React.FC<SplashLoadingProps> = ({
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-wide text-zinc-100 font-sans-clean">
-          Jaystarbliss
+          Library X
         </h1>
-        <p className="text-xs sm:text-sm text-zinc-400 font-medium tracking-widest uppercase mt-0.5">
-          Library
-        </p>
       </div>
 
       {/* Bottom Tagline & Progress Bar */}

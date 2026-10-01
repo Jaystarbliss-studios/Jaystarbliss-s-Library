@@ -21,7 +21,6 @@ import {
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { MenuDrawer } from './components/MenuDrawer';
 import { ProfileModal } from './components/ProfileModal';
 import { ReadingSettingsModal } from './components/ReadingSettingsModal';
 import { NotificationsModal } from './components/NotificationsModal';
@@ -83,7 +82,6 @@ export default function App() {
   const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
 
   // Aux Modals state
-  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [isReadingSettingsModalOpen, setIsReadingSettingsModalOpen] = useState<boolean>(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState<boolean>(false);
@@ -377,7 +375,6 @@ export default function App() {
           bookmarkCount={bookmarks.length}
           onLoginWithGoogle={handleLoginWithGoogle}
           onLogout={handleLogout}
-          onOpenMenuDrawer={() => setIsMenuDrawerOpen(true)}
           onOpenProfile={() => setIsProfileModalOpen(true)}
           onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         />
@@ -653,22 +650,7 @@ export default function App() {
         onOpenProfile={() => setIsProfileModalOpen(true)}
       />
 
-      {/* 5. MOBILE MENU DRAWER */}
-      <MenuDrawer
-        isOpen={isMenuDrawerOpen}
-        onClose={() => setIsMenuDrawerOpen(false)}
-        currentRoute={currentRoute}
-        onNavigate={navigateTo}
-        currentUser={currentUserProfile}
-        firebaseUser={firebaseUser}
-        onLoginWithGoogle={handleLoginWithGoogle}
-        onLogout={handleLogout}
-        onOpenSettings={() => setIsReadingSettingsModalOpen(true)}
-        onOpenNotifications={() => setIsNotificationsModalOpen(true)}
-        onOpenHelp={() => setIsHelpModalOpen(true)}
-      />
-
-      {/* 6. PROFILE MODAL */}
+      {/* 5. PROFILE MODAL */}
       <ProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
