@@ -28,7 +28,99 @@
   </head>
   <body class="bg-[#0e0e10] text-[#1a1a1a] antialiased selection:bg-[#1f1f23] selection:text-[#f3f3f3]">
     <div id="root"></div>
+
+    <!--
+      Reading-progress guard:
+      The app historically allowed an older Firestore snapshot to overwrite a
+      newer local chapter during authentication sync. Keep the newest local
+      record per book in a tiny browser-side shadow and restore it whenever an
+      older sync attempts to replace it. This makes Resume Reading monotonic:
+      reaching Chapter 20 can never silently roll the reader back to Chapter 2.
+    -->
+    <script>
+      (() => {
+        const KEY = 'jsb_reading_progress';
+        const SHADOW_KEY = 'jsb_reading_progress_latest';
+        let restoring = false;
+
+        const read = (key) => {
+          try {
+            const value = JSON.parse(localStorage.getItem(key) || '[]');
+            return Array.isArray(value) ? value : [];
+          } catch (_) {
+            return [];
+          }
+        };
+
+        const time = (value) => {
+          const parsed = Date.parse(value || '');
+          return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        const newestByBook = (records) => {
+          const map = new Map();
+          records.forEach((record) => {
+            if (!record || !record.bookId) return;
+            const existing = map.get(record.bookId);
+            if (!existing || time(record.lastReadAt) >= time(existing.lastReadAt)) {
+              map.set(record.bookId, record);
+            }
+          });
+          return Array.from(map.values());
+        };
+
+        const persistShadow = (records) => {
+          try {
+            localStorage.setItem(SHADOW_KEY, JSON.stringify(newestByBook(records)));
+          } catch (_) {}
+        };
+
+        const reconcile = () => {
+          if (restoring) return;
+          const current = read(KEY);
+          const shadow = read(SHADOW_KEY);
+          const merged = newestByBook([...current, ...shadow]);
+
+          const currentByBook = new Map(newestByBook(current).map((item) => [item.bookId, item]));
+          let changed = false;
+
+          for (const item of merged) {
+            const currentItem = currentByBook.get(item.bookId);
+            if (!currentItem || time(item.lastReadAt) > time(currentItem.lastReadAt)) {
+              changed = true;
+              break;
+            }
+          }
+
+          persistShadow(merged);
+
+          if (changed) {
+            restoring = true;
+            try {
+              localStorage.setItem(KEY, JSON.stringify(merged));
+            } finally {
+              restoring = false;
+            }
+            window.dispatchEvent(new CustomEvent('jsb_library_updated', {
+              detail: { key: KEY, source: 'reading-progress-guard' }
+            }));
+          }
+        };
+
+        // Capture the latest known progress before React/Firebase boot.
+        persistShadow(read(KEY));
+
+        window.addEventListener('jsb_library_updated', (event) => {
+          const key = event && event.detail ? event.detail.key : null;
+          if (key === KEY) reconcile();
+        });
+
+        // Also protect against code that mutates localStorage without dispatching
+        // the application's custom event.
+        window.setInterval(reconcile, 1500);
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
