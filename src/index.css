@@ -7,63 +7,53 @@
     --font-calibri: Calibri, "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-cinzel: "Cinzel", Georgia, serif;
     --font-mono: "Space Mono", monospace;
+    --library-bg: #0d0d0f;
+    --library-surface: #131319;
+    --library-surface-2: #18181d;
+    --library-border: #27272a;
+    --library-text: #f4f4f5;
+    --library-muted: #a1a1aa;
+    --library-subtle: #71717a;
+    --library-radius: 0.75rem;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    background: #09090d;
+    overscroll-behavior-x: none;
+    scroll-behavior: smooth;
   }
 
   body {
     font-family: var(--font-calibri);
-    background-color: #0d0d0f;
-    color: #e4e4e7;
+    background-color: var(--library-bg);
+    color: var(--library-text);
     margin: 0;
     padding: 0;
+    min-width: 320px;
+    min-height: 100dvh;
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 }
 
-.font-cambria {
-  font-family: var(--font-cambria);
-}
+.font-cambria { font-family: var(--font-cambria); }
+.font-merriweather { font-family: "Merriweather", Georgia, serif; }
+.font-lora { font-family: "Lora", Georgia, serif; }
+.font-inter { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.font-roboto { font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.font-calibri { font-family: var(--font-calibri); }
+.font-garamond { font-family: "EB Garamond", Georgia, serif; }
+.font-newsreader { font-family: "Newsreader", Georgia, serif; }
+.font-sans-clean { font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.font-cinzel { font-family: var(--font-cinzel); }
+.font-mono-space { font-family: var(--font-mono); }
 
-.font-merriweather {
-  font-family: "Merriweather", Georgia, serif;
-}
-
-.font-lora {
-  font-family: "Lora", Georgia, serif;
-}
-
-.font-inter {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.font-roboto {
-  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.font-calibri {
-  font-family: var(--font-calibri);
-}
-
-.font-garamond {
-  font-family: "EB Garamond", Georgia, serif;
-}
-
-.font-newsreader {
-  font-family: "Newsreader", Georgia, serif;
-}
-
-.font-sans-clean {
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.font-cinzel {
-  font-family: var(--font-cinzel);
-}
-
-.font-mono-space {
-  font-family: var(--font-mono);
-}
-
-/* Reader typography is authoritative over formatting carried inside manuscript HTML. */
 .reader-content-font {
   font-family: var(--reader-font-family, inherit) !important;
   font-size: var(--reader-font-size, 18px) !important;
@@ -71,13 +61,7 @@
   color: var(--reader-text-color, inherit) !important;
 }
 
-/* Manuscript HTML can contain its own inline colors from the editor/paste.
-   Reader theme must remain authoritative so dark mode never renders black
-   text against the dark page. */
-.reader-content-font :where(
-  p, div, span, li, blockquote, strong, em, b, i, u, s, a,
-  small, mark, q, cite, code, pre, td, th
-) {
+.reader-content-font :where(p, div, span, li, blockquote, strong, em, b, i, u, s, a, small, mark, q, cite, code, pre, td, th) {
   font-family: var(--reader-font-family, inherit) !important;
   font-size: inherit !important;
   line-height: inherit !important;
@@ -95,7 +79,6 @@
   color: var(--reader-text-color, inherit) !important;
 }
 
-/* Literary Editorial Drop Cap */
 .drop-cap::first-letter {
   font-family: var(--font-cambria);
   float: left;
@@ -108,135 +91,239 @@
   color: var(--reader-text-color, #18181b);
 }
 
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 
-/* Custom subtle scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
-}
-
-
-
-/* Mobile/PWA ergonomics */
-html {
-  min-width: 320px;
-  background: #09090d;
-  overscroll-behavior-x: none;
-}
-
-body {
-  min-width: 320px;
-  min-height: 100dvh;
-  overflow-x: hidden;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-button,
-a,
-input,
-select,
-textarea {
+button, a, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-button,
-[role="button"],
-a {
-  touch-action: manipulation;
+button, [role="button"], a { touch-action: manipulation; }
+
+img, svg, video, canvas { max-width: 100%; }
+input, select, textarea { max-width: 100%; font-size: 16px; }
+
+/* --------------------------------------------------------------------------
+   Library X visual system
+   Quiet editorial surfaces, restrained monochrome contrast, consistent corners.
+   -------------------------------------------------------------------------- */
+
+#root {
+  min-height: 100dvh;
 }
 
-img,
-svg,
-video,
-canvas {
-  max-width: 100%;
+#root button,
+#root a {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
 }
 
-input,
-select,
-textarea {
-  max-width: 100%;
-  font-size: 16px;
+#root button:active,
+#root a:active {
+  transform: translateY(1px);
 }
+
+/* Remove the visual noise of overly-pill-shaped UI while preserving compact controls. */
+#root .rounded-3xl { border-radius: 1rem !important; }
+#root .rounded-2xl { border-radius: var(--library-radius) !important; }
+#root .rounded-xl { border-radius: 0.625rem !important; }
+#root .rounded-lg { border-radius: 0.5rem !important; }
+
+/* Tags/badges should read as metadata, not promotional chips. */
+#root .rounded-full:not(img) {
+  border-radius: 0.5rem !important;
+}
+
+/* Avoid saturated accent colours leaking into ordinary UI. */
+#root .text-amber-300,
+#root .text-amber-400,
+#root .text-amber-500 { color: #d4d4d8 !important; }
+#root .bg-amber-400,
+#root .bg-amber-500,
+#root .bg-amber-500\/10,
+#root .bg-amber-500\/20 { background-color: #27272a !important; }
+#root .border-amber-500\/30,
+#root .border-amber-500\/40 { border-color: #3f3f46 !important; }
+#root .text-rose-400 { color: #a1a1aa !important; }
+#root .text-emerald-400 { color: #a1a1aa !important; }
+
+/* Make ordinary surfaces feel like one coherent application instead of many cards. */
+#root .bg-\[\#131319\],
+#root .bg-\[\#131319\]\/90,
+#root .bg-\[\#14141e\],
+#root .bg-\[\#121218\] {
+  background-color: var(--library-surface) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile: deliberate compact application layout.
+   The desktop composition is retained, but typography, spacing and controls are
+   compressed so the first viewport exposes substantially more useful content.
+   -------------------------------------------------------------------------- */
 
 @media (max-width: 767px) {
   body {
-    font-size: 15px;
+    font-size: 14px;
   }
 
-  /* Keep fixed mobile navigation from covering the last row of content. */
   #root > div {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
   }
 
-  /* Reader mode owns its own full-screen layout and bottom controls. */
   #root > div:has(.reader-content-font) {
     padding-bottom: 0;
   }
-}
 
-@media (max-width: 374px) {
-  #root > div {
-    padding-left: 0;
-    padding-right: 0;
+  /* Compact the common Tailwind spacing scale without changing the reader itself. */
+  #root .max-w-7xl {
+    width: 100%;
+    max-width: none;
   }
-}
 
-@media (min-width: 768px) {
-  body {
-    font-size: 16px;
+  #root .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  #root .sm\:px-6, #root .lg\:px-8 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  #root .py-8 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  #root .py-10 { padding-top: 1.25rem !important; padding-bottom: 1.25rem !important; }
+  #root .py-12 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+  #root .p-8 { padding: 1rem !important; }
+  #root .p-6 { padding: 0.875rem !important; }
+  #root .p-5 { padding: 0.75rem !important; }
+  #root .p-4 { padding: 0.625rem !important; }
+
+  #root .gap-8 { gap: 1rem !important; }
+  #root .gap-6 { gap: 0.75rem !important; }
+  #root .gap-5 { gap: 0.625rem !important; }
+  #root .gap-4 { gap: 0.625rem !important; }
+  #root .gap-3 { gap: 0.5rem !important; }
+  #root .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+  #root .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
+  #root .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem !important; }
+
+  /* Headings are intentionally much smaller on phone so the page reads like the
+     desktop hierarchy rather than a stack of giant marketing headings. */
+  #root .text-5xl { font-size: 1.75rem !important; line-height: 1.08 !important; }
+  #root .text-4xl { font-size: 1.5rem !important; line-height: 1.1 !important; }
+  #root .text-3xl { font-size: 1.35rem !important; line-height: 1.15 !important; }
+  #root .text-2xl { font-size: 1.2rem !important; line-height: 1.2 !important; }
+  #root .text-xl { font-size: 1.05rem !important; line-height: 1.25 !important; }
+  #root .text-lg { font-size: 0.98rem !important; line-height: 1.3 !important; }
+  #root .text-base { font-size: 0.9rem !important; line-height: 1.4 !important; }
+  #root .text-sm { font-size: 0.78rem !important; line-height: 1.4 !important; }
+  #root .text-xs { font-size: 0.68rem !important; line-height: 1.35 !important; }
+  #root .text-\[11px\] { font-size: 0.62rem !important; }
+  #root .text-\[10px\] { font-size: 0.58rem !important; }
+
+  /* Compact image/card proportions. */
+  #root .w-18 { width: 3.5rem !important; }
+  #root .h-26 { height: 5rem !important; }
+  #root .w-20 { width: 4rem !important; }
+  #root .h-28 { height: 5.5rem !important; }
+  #root .w-24 { width: 4.5rem !important; }
+  #root .h-32 { height: 6.25rem !important; }
+
+  #root .shadow-2xl { box-shadow: 0 12px 28px rgba(0,0,0,.24) !important; }
+  #root .shadow-xl { box-shadow: 0 8px 20px rgba(0,0,0,.2) !important; }
+  #root .shadow-lg { box-shadow: 0 6px 16px rgba(0,0,0,.18) !important; }
+
+  /* Buttons remain touchable, but no longer consume a large percentage of the viewport. */
+  #root button.px-5,
+  #root button.px-6,
+  #root a.px-5,
+  #root a.px-6 {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
   }
-}
 
-@media (display-mode: standalone) {
-  body {
-    padding-top: env(safe-area-inset-top);
+  #root button.py-3,
+  #root button.py-2\.5,
+  #root a.py-3,
+  #root a.py-2\.5 {
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
   }
-}
 
+  /* Drawer/navigation spacing. */
+  #root header .h-18 { height: 3.5rem !important; }
+  #root header img { max-height: 2rem; }
+  #root header .p-2 { padding: 0.4rem !important; }
+  #root header svg { max-width: 1.15rem; max-height: 1.15rem; }
 
-.mobile-bottom-nav {
-  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  /* Metadata badges become quiet labels. */
+  #root .rounded-full:not(img) {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+    padding-top: 0.15rem !important;
+    padding-bottom: 0.15rem !important;
+    font-weight: 500 !important;
+  }
+
+  /* Keep controls from overflowing narrow devices. */
+  #root .flex.items-center.justify-between {
+    min-width: 0;
+  }
+
+  #root h1,
+  #root h2,
+  #root h3,
+  #root h4,
+  #root p,
+  #root span,
+  #root button,
+  #root a {
+    overflow-wrap: anywhere;
+  }
+
+  /* Hide decorative/nonessential copy when an explicit responsive utility exists. */
+  #root .tracking-widest { letter-spacing: 0.075em; }
+  #root .tracking-wider { letter-spacing: 0.045em; }
+
+  /* Mobile shelf cards should present title, chapter and action in the first viewport. */
+  #root .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #root .grid.grid-cols-1.md\:grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
 
 @media (max-width: 420px) {
-  .mobile-bottom-nav > div {
-    width: 100%;
-  }
+  #root > div { padding-left: 0; padding-right: 0; }
+  #root .px-4, #root .sm\:px-6, #root .lg\:px-8 { padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
 
+  #root .text-4xl { font-size: 1.35rem !important; }
+  #root .text-3xl { font-size: 1.2rem !important; }
+  #root .text-2xl { font-size: 1.1rem !important; }
+
+  .mobile-bottom-nav > div { width: 100%; }
   .mobile-bottom-nav button {
     min-width: 0;
     flex: 1 1 0%;
-    padding-left: 0.35rem;
-    padding-right: 0.35rem;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
   }
-
   .mobile-bottom-nav button span {
-    font-size: 9px;
-    letter-spacing: 0.04em;
+    font-size: 8px;
+    letter-spacing: 0.035em;
   }
 }
 
 @media (max-width: 340px) {
-  .mobile-bottom-nav button span {
-    font-size: 8px;
-  }
+  .mobile-bottom-nav button span { font-size: 7px; }
+  .mobile-bottom-nav button svg { width: 16px; height: 16px; }
+}
 
-  .mobile-bottom-nav button svg {
-    width: 18px;
-    height: 18px;
-  }
+@media (min-width: 768px) {
+  body { font-size: 16px; }
+}
+
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); }
+}
+
+.mobile-bottom-nav {
+  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
 }
