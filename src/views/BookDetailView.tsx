@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
+import { getReadingProgressForBook } from '../lib/storage';
 
 interface BookDetailViewProps {
   book: Book;
@@ -31,6 +32,7 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   book,
   chapters,
   progress,
+  userId,
   currentUser,
   onSelectChapter,
   onStartReading,
@@ -44,8 +46,11 @@ export const BookDetailView: React.FC<BookDetailViewProps> = ({
   const [isSaved, setIsSaved] = useState(false);
 
   const isAuthenticated = Boolean(currentUser);
-  const currentResumeChapter = progress?.lastChapterNumber || 1;
-  const isReading = Boolean(progress && progress.progressPercent > 0);
+  
+  // Real-time lookup of user's reading progress for this book
+  const activeProgress = progress || (userId ? getReadingProgressForBook(userId, book.id) : undefined) || getReadingProgressForBook('guest_user', book.id);
+  const currentResumeChapter = activeProgress?.lastChapterNumber || 1;
+  const isReading = Boolean(activeProgress && activeProgress.lastChapterNumber && activeProgress.lastChapterNumber > 0);
 
   // Derive total words from chapters
   const totalWords = chapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);

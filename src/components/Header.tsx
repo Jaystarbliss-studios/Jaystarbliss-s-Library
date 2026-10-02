@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  BookOpen, 
   Search, 
   Bell, 
   LogIn
@@ -8,6 +7,7 @@ import {
 import { UserProfile } from '../types';
 import { User } from 'firebase/auth';
 import { SimpleAuthUser } from '../lib/firebase';
+import { InstallAppButton } from './InstallAppButton';
 
 interface HeaderProps {
   currentRoute: string;
@@ -46,12 +46,16 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group text-left min-w-0"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group text-left min-w-0"
             aria-label="Library X Home"
           >
-            {/* Perfectly square rounded logo box */}
-            <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 aspect-square shrink-0 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-md group-hover:border-teal-500/40 transition-colors">
-              <BookOpen className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-zinc-100 group-hover:text-teal-400 transition-colors" strokeWidth={1.8} />
+            {/* Library X Official Logo Icon */}
+            <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 aspect-square shrink-0 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-md group-hover:border-teal-500/40 transition-all overflow-hidden p-0.5">
+              <img
+                src="/library-x.png"
+                alt="Library X"
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             
             <span className="font-sans-clean text-sm sm:text-base md:text-lg font-bold tracking-tight text-zinc-100 group-hover:text-white transition-colors truncate">
@@ -82,10 +86,13 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Right: Search, Notifications & User Profile (All square icons scale consistently) */}
+        {/* Right: Search, Notifications, Install App & User Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           
-          {/* Search Trigger (Accurate rounded square) */}
+          {/* PWA Install Button */}
+          <InstallAppButton />
+
+          {/* Search Trigger */}
           <button
             onClick={() => onNavigate('search')}
             className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 aspect-square shrink-0 rounded-xl flex items-center justify-center border transition-all cursor-pointer active:scale-95 ${
@@ -99,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
-          {/* Notifications Bell (Accurate rounded square) */}
+          {/* Notifications Bell */}
           <button
             onClick={onOpenNotifications}
             className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 aspect-square shrink-0 rounded-xl bg-[#141520] hover:bg-[#1a1c2a] text-zinc-400 hover:text-white border border-white/5 transition-all relative flex items-center justify-center cursor-pointer active:scale-95"

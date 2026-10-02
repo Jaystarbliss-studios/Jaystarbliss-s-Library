@@ -52,13 +52,13 @@ export const SplashLoading: React.FC<SplashLoadingProps> = ({
       {/* Center Branding & Emblem */}
       <div className="relative z-10 flex flex-col items-center text-center px-6">
         <div className="relative mb-6">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141522]/90 border border-white/10 flex items-center justify-center shadow-2xl backdrop-blur-md">
-            <BookOpen className="w-8 h-8 sm:w-10 sm:h-10 text-zinc-100" strokeWidth={1.75} />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141522]/90 border border-white/10 flex items-center justify-center shadow-2xl backdrop-blur-md overflow-hidden p-1">
+            <img src="/library-x.png" alt="Library X" className="w-full h-full object-contain rounded-xl" />
           </div>
           <div className="absolute -inset-2 bg-gradient-to-r from-teal-500/20 to-indigo-500/20 rounded-3xl blur-xl -z-10 animate-pulse" />
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-wide text-zinc-100 font-sans-clean">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-100 font-sans-clean">
           Library X
         </h1>
       </div>

@@ -43,6 +43,8 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
   const [content, setContent] = useState<string>(chapter?.content || '');
   const [authorsThoughts, setAuthorsThoughts] = useState<string>(chapter?.authorsThoughts || '');
   const [status, setStatus] = useState<ChapterStatus>(chapter?.status || 'draft');
+  const [isLocked, setIsLocked] = useState<boolean>(chapter?.isLocked || (chapter?.chapterNumber ? chapter.chapterNumber >= 11 : false));
+  const [accessCode, setAccessCode] = useState<string>(chapter?.accessCode || '');
   const [scheduledDate, setScheduledDate] = useState<string>(
     chapter?.scheduledFor ? new Date(chapter.scheduledFor).toISOString().slice(0, 16) : ''
   );
@@ -174,6 +176,8 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       content,
       authorsThoughts: authorsThoughts.trim() || undefined,
       status: status === 'published' ? 'published' : 'draft',
+      isLocked,
+      accessCode: accessCode.trim() || undefined,
       scheduledFor: scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
       publishedAt: chapter?.publishedAt,
       wordCount: words,
@@ -246,6 +250,8 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
       content,
       authorsThoughts: authorsThoughts.trim() || undefined,
       status: isScheduling ? 'scheduled' : 'published',
+      isLocked,
+      accessCode: accessCode.trim() || undefined,
       scheduledFor: isScheduling && scheduledDate ? new Date(scheduledDate).toISOString() : undefined,
       publishedAt: isScheduling ? undefined : (chapter?.publishedAt || now),
       wordCount: words,
@@ -477,6 +483,58 @@ export const AdminChapterEditorView: React.FC<AdminChapterEditorViewProps> = ({
                 onChange={(e) => setSubtitle(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-700 text-zinc-200 font-cambria italic text-sm p-2.5 rounded-sm focus:outline-none focus:border-zinc-500"
               />
+            </div>
+
+            {/* Chapter Access & Lock Protection Matrix */}
+            <div className="sm:col-span-12 pt-3 border-t border-zinc-800/80 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+              <div className="sm:col-span-6 space-y-1">
+                <span className="text-xs font-mono-space text-zinc-300 block font-bold flex items-center gap-1.5">
+                  <span>Chapter Access Control</span>
+                  {isLocked && <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-mono-space">LOCKED</span>}
+                </span>
+                <span className="text-[11px] font-mono-space text-zinc-400 block">
+                  Choose whether this chapter is free to read or locked behind a reader access passcode.
+                </span>
+              </div>
+
+              <div className="sm:col-span-6 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-end">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLocked(false)}
+                    className={`px-3 py-1.5 rounded text-xs font-mono-space font-semibold transition-colors cursor-pointer ${
+                      !isLocked
+                        ? 'bg-emerald-500 text-zinc-950 shadow-md'
+                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Open / Free
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLocked(true)}
+                    className={`px-3 py-1.5 rounded text-xs font-mono-space font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                      isLocked
+                        ? 'bg-amber-500 text-zinc-950 shadow-md'
+                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    <span>🔒 Locked</span>
+                  </button>
+                </div>
+
+                {isLocked && (
+                  <div className="w-full sm:w-auto flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Access Code (e.g. VIP2026)"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value)}
+                      className="w-full sm:w-48 bg-zinc-950 border border-amber-500/40 text-amber-300 text-xs font-mono-space p-2 rounded focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Schedule Date & Time Picker */}

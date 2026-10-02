@@ -139,6 +139,17 @@ export default function App() {
     checkAndPublishScheduled();
   }, [activeUserId]);
 
+  // Listen to local library and progress updates
+  useEffect(() => {
+    const handleUpdate = () => refreshData();
+    window.addEventListener('jsb_library_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('jsb_library_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [refreshData]);
+
   // Auth State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -668,6 +679,11 @@ export default function App() {
       <ReadingSettingsModal
         isOpen={isReadingSettingsModalOpen}
         onClose={() => setIsReadingSettingsModalOpen(false)}
+        onUpdatePreferences={(updated) => {
+          if (updated.fontSizePx) {
+            document.documentElement.style.setProperty('--reader-font-size', `${updated.fontSizePx}px`);
+          }
+        }}
       />
 
       {/* 8. NOTIFICATIONS MODAL */}

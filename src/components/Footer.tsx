@@ -15,8 +15,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAdmin }) => {
           {/* Brand & Mission */}
           <div className="md:col-span-2 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-sm">
-                <BookOpen className="w-4 h-4 text-zinc-100" />
+              <div className="w-8 h-8 rounded-xl bg-[#141522] border border-white/10 flex items-center justify-center shadow-sm overflow-hidden p-0.5">
+                <img src="/library-x.png" alt="Library X" className="w-full h-full object-contain rounded-lg" />
               </div>
               <span className="font-sans-clean font-bold tracking-tight text-zinc-100 text-base">
                 Library X

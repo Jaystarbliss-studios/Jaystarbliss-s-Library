@@ -46,9 +46,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <div className="pb-4 border-b border-zinc-800">
           <div className="flex items-center gap-2.5">
             <img 
-              src="/logo-dark.png" 
+              src="/library-x.png" 
               alt="Library X Logo" 
-              className="w-8 h-8 object-contain rounded-md"
+              className="w-8 h-8 object-contain rounded-lg"
             />
             <div>
               <span className="font-cinzel text-sm font-bold tracking-widest text-zinc-100 block">

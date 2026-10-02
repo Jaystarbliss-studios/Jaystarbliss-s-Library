@@ -42,6 +42,8 @@ export interface Chapter {
   teaserContent?: string;
   authorsThoughts?: string;
   status: ChapterStatus;
+  isLocked?: boolean;
+  accessCode?: string;
   scheduledFor?: string;
   publishedAt?: string;
   wordCount: number;
@@ -139,6 +141,7 @@ export type LibraryFont = 'serif' | 'newsreader' | 'sans' | 'mono';
 
 export interface ReaderPreferences {
   fontSize: ReaderFontSize;
+  fontSizePx?: number;
   fontFamily: ReaderFontFamily;
   readingWidth: ReaderWidth;
   theme: ReaderTheme;

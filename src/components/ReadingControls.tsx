@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, Minus, Plus } from 'lucide-react';
+import { Check, X, Minus, Plus, AlignJustify } from 'lucide-react';
 import { ReaderPreferences, ReaderFontFamily, ReaderTheme } from '../types';
 
 interface ReadingControlsProps {
@@ -35,7 +35,7 @@ const THEMES: {
   {
     label: 'Dark',
     value: 'dark',
-    page: '#151922',
+    page: '#11131a',
     text: '#f4f6fb',
     panel: '#0d1118',
     border: '#303746'
@@ -70,6 +70,12 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
     { value: '2xl', label: 'Maximum' }
   ];
 
+  const lineSpacings: { value: 'normal' | 'relaxed' | 'loose'; label: string; desc: string }[] = [
+    { value: 'normal', label: 'Comfortable', desc: '1.78x' },
+    { value: 'relaxed', label: 'Relaxed', desc: '2.0x' },
+    { value: 'loose', label: 'Spacious', desc: '2.25x' }
+  ];
+
   const currentFontSizeIndex = Math.max(
     0,
     fontSizes.findIndex((size) => size.value === preferences.fontSize)
@@ -96,19 +102,20 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close reading settings"
-            className="rounded-lg p-1.5 text-[#aeb7c7] transition-colors hover:bg-[#18202c] hover:text-white"
+            className="rounded-lg p-1.5 text-[#aeb7c7] transition-colors hover:bg-[#18202c] hover:text-white cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <div className="space-y-6 px-6 py-6">
+      <div className="space-y-5 px-6 py-5 max-h-[75vh] overflow-y-auto">
+        {/* Theme Palette */}
         <section>
-          <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
+          <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
             Theme
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {THEMES.map((theme) => {
               const selected = preferences.theme === theme.value;
               return (
@@ -117,7 +124,7 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
                   type="button"
                   onClick={() => selectTheme(theme)}
                   aria-pressed={selected}
-                  className="relative h-11 rounded-[11px] border text-[14px] font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-[#3f7cff]/50"
+                  className="relative h-11 rounded-[11px] border text-[14px] font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-[#3f7cff]/50 cursor-pointer"
                   style={{
                     backgroundColor: theme.page,
                     color: theme.text,
@@ -137,11 +144,12 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
           </div>
         </section>
 
+        {/* Font Family */}
         <section>
-          <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
+          <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
             Font
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {FONTS.map((font) => {
               const selected = preferences.fontFamily === font.value;
               return (
@@ -150,7 +158,7 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
                   type="button"
                   onClick={() => onChangePreferences({ fontFamily: font.value })}
                   aria-pressed={selected}
-                  className={`relative h-11 rounded-[11px] border bg-transparent px-3 text-[14px] font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[#3f7cff]/50 ${
+                  className={`relative h-11 rounded-[11px] border bg-transparent px-3 text-[14px] font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[#3f7cff]/50 cursor-pointer ${
                     selected
                       ? 'border-[#3f7cff] text-[#f4f6fb] shadow-[0_0_0_1px_#3f7cff]'
                       : 'border-[#252d39] text-[#c5ccd8] hover:border-[#414b5c] hover:bg-[#121923]'
@@ -168,8 +176,36 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
           </div>
         </section>
 
+        {/* Line Spacing */}
         <section>
-          <div className="mb-3 text-[13px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
+          <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
+            Line Spacing
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            {lineSpacings.map((spacing) => {
+              const selected = (preferences.lineHeight || 'normal') === spacing.value;
+              return (
+                <button
+                  key={spacing.value}
+                  type="button"
+                  onClick={() => onChangePreferences({ lineHeight: spacing.value })}
+                  className={`relative h-11 rounded-[11px] border px-3 text-center transition-all cursor-pointer ${
+                    selected
+                      ? 'border-[#3f7cff] bg-[#1a2333] text-[#f4f6fb] shadow-[0_0_0_1px_#3f7cff]'
+                      : 'border-[#252d39] bg-transparent text-[#c5ccd8] hover:border-[#414b5c] hover:bg-[#121923]'
+                  }`}
+                >
+                  <div className="text-[13px] font-semibold">{spacing.label}</div>
+                  <div className="text-[10px] text-[#7f8998]">{spacing.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Text Size */}
+        <section>
+          <div className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-[#7f8998]">
             Text Size
           </div>
           <div className="flex items-center gap-3">
@@ -178,12 +214,12 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
               onClick={() => changeFontSize(-1)}
               disabled={currentFontSizeIndex === 0}
               aria-label="Decrease text size"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35 cursor-pointer"
             >
               <Minus className="h-4 w-4" />
             </button>
 
-            <div className="min-w-0 flex-1 rounded-[11px] border border-[#252d39] bg-[#121923] px-4 py-2.5 text-center">
+            <div className="min-w-0 flex-1 rounded-[11px] border border-[#252d39] bg-[#121923] px-4 py-2 text-center">
               <div className="text-[13px] font-semibold text-[#f4f6fb]">
                 {fontSizes[currentFontSizeIndex].label}
               </div>
@@ -197,7 +233,7 @@ export const ReadingControls: React.FC<ReadingControlsProps> = ({
               onClick={() => changeFontSize(1)}
               disabled={currentFontSizeIndex === fontSizes.length - 1}
               aria-label="Increase text size"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-[#252d39] bg-transparent text-[#c5ccd8] transition-all hover:border-[#414b5c] hover:bg-[#121923] disabled:cursor-not-allowed disabled:opacity-35 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
             </button>

@@ -51,53 +51,95 @@
 .font-cinzel { font-family: var(--font-cinzel); }
 .font-mono-space { font-family: var(--font-mono); }
 
-/* Manuscript Typography Engine with dynamic CSS custom properties */
+/* High-Contrast, Clean Manuscript Typography Engine */
 .reader-content-font {
   font-family: var(--reader-font-family, 'Merriweather', Georgia, serif) !important;
   font-size: var(--reader-font-size, 18px) !important;
-  line-height: var(--reader-line-height, 1.8) !important;
+  line-height: var(--reader-line-height, 1.55) !important;
+  color: var(--reader-text-color, #f4f6fb) !important;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Force high contrast text on all nested elements, overriding any inline paste styles */
+.reader-content-font,
+.reader-content-font *,
+.reader-content-font p,
+.reader-content-font span,
+.reader-content-font div,
+.reader-content-font font,
+.reader-content-font em,
+.reader-content-font strong,
+.reader-content-font b,
+.reader-content-font i,
+.reader-content-font a,
+.reader-content-font li,
+.reader-content-font blockquote {
   color: var(--reader-text-color, #f4f6fb) !important;
 }
 
-.reader-content-font p,
-.reader-content-font div,
-.reader-content-font span,
-.reader-content-font li,
-.reader-content-font blockquote,
-.reader-content-font strong,
-.reader-content-font em,
-.reader-content-font b,
-.reader-content-font i {
-  color: var(--reader-text-color, inherit) !important;
-  font-family: var(--reader-font-family, inherit) !important;
+.reader-content-font p {
+  margin-top: 0 !important;
+  margin-bottom: 0.95em !important;
+  line-height: var(--reader-line-height, 1.55) !important;
+  font-family: inherit !important;
 }
 
-.reader-content-font p {
-  margin-bottom: 1.5em;
+.reader-content-font blockquote {
+  margin: 1.1em 0 !important;
+  padding-left: 1.1em !important;
+  border-left: 3px solid currentColor !important;
+  opacity: 0.9;
+  font-style: italic;
+  line-height: var(--reader-line-height, 1.55) !important;
 }
 
 .reader-content-font h1,
 .reader-content-font h2,
 .reader-content-font h3,
 .reader-content-font h4 {
-  font-family: var(--reader-font-family, inherit) !important;
-  color: var(--reader-text-color, inherit) !important;
-  line-height: 1.3 !important;
-  margin-top: 1.8em;
-  margin-bottom: 0.8em;
+  font-family: inherit !important;
+  line-height: 1.25 !important;
+  margin-top: 1.4em !important;
+  margin-bottom: 0.5em !important;
   font-weight: 700;
 }
 
-.drop-cap::first-letter {
+.reader-content-font ul,
+.reader-content-font ol {
+  margin-top: 0 !important;
+  margin-bottom: 1em !important;
+  padding-left: 1.3em !important;
+  line-height: var(--reader-line-height, 1.55) !important;
+}
+
+.reader-content-font li {
+  margin-bottom: 0.35em !important;
+  line-height: var(--reader-line-height, 1.55) !important;
+}
+
+.reader-content-font strong,
+.reader-content-font b {
+  font-weight: 700;
+}
+
+.reader-content-font em,
+.reader-content-font i {
+  font-style: italic;
+}
+
+/* Subtle classic Drop Cap */
+.drop-cap > div > p:first-of-type::first-letter,
+.drop-cap > p:first-of-type::first-letter {
   font-family: "Cinzel", "EB Garamond", Georgia, serif;
   float: left;
-  font-size: 3.5rem;
+  font-size: 2.75rem;
   line-height: 0.85;
-  padding-top: 4px;
-  padding-right: 12px;
-  padding-bottom: 2px;
+  margin-top: 0.05em;
+  margin-right: 0.15em;
+  margin-bottom: -0.05em;
   font-weight: 700;
-  color: var(--reader-text-color, currentColor);
+  color: var(--reader-text-color, #ffffff) !important;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }

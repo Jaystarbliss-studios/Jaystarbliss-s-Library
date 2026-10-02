@@ -596,6 +596,116 @@ export function getAllReadingProgress(userId: string): ReadingProgress[] {
   return allProgress.filter((p) => p.userId === userId).sort((a, b) => new Date(b.lastReadAt).getTime() - new Date(a.lastReadAt).getTime());
 }
 
+export function isChapterMarkedAsRead(userId: string, bookId: string, chapterNumber: number): boolean {
+  const allRead = safeGetJSON<Record<string, number[]>>('jsb_read_chapters', {});
+  const userBookKey = `${userId || 'guest_user'}::${bookId}`;
+  return allRead[userBookKey]?.includes(chapterNumber) || false;
+}
+
+export function getReadChaptersForBook(userId: string, bookId: string): number[] {
+  const allRead = safeGetJSON<Record<string, number[]>>('jsb_read_chapters', {});
+  const userBookKey = `${userId || 'guest_user'}::${bookId}`;
+  return allRead[userBookKey] || [];
+}
+
+export function toggleChapterMarkedAsRead(
+  userId: string, 
+  book: Book, 
+  chapterNumber: number,
+  totalPublishedChapters: number
+): boolean {
+  const allRead = safeGetJSON<Record<string, number[]>>('jsb_read_chapters', {});
+  const userKey = userId || 'guest_user';
+  const userBookKey = `${userKey}::${book.id}`;
+  const list = [...(allRead[userBookKey] || [])];
+  const index = list.indexOf(chapterNumber);
+  let nowRead = false;
+
+  if (index >= 0) {
+    list.splice(index, 1);
+    nowRead = false;
+  } else {
+    list.push(chapterNumber);
+    nowRead = true;
+  }
+
+  allRead[userBookKey] = list;
+  safeSetJSON('jsb_read_chapters', allRead);
+
+  // Update or calculate overall novel reading progress percent
+  const percent = totalPublishedChapters > 0
+    ? Math.min(100, Math.round((list.length / totalPublishedChapters) * 100))
+    : 0;
+
+  // Update ReadingProgress record if user marked as read
+  const allProgress = safeGetJSON<ReadingProgress[]>(STORAGE_KEYS.READING_PROGRESS, []);
+  const pIndex = allProgress.findIndex((p) => (p.userId === userKey || p.userId === userId) && p.bookId === book.id);
+  const now = new Date().toISOString();
+
+  const progressRecord: ReadingProgress = {
+    id: pIndex >= 0 ? allProgress[pIndex].id : `rp-${Date.now()}`,
+    userId: userKey,
+    bookId: book.id,
+    bookSlug: book.slug,
+    bookTitle: book.title,
+    bookCoverUrl: book.coverUrl,
+    lastChapterId: `ch-${chapterNumber}`,
+    lastChapterNumber: chapterNumber,
+    lastChapterTitle: `Chapter ${chapterNumber}`,
+    progressPercent: Math.max(pIndex >= 0 ? allProgress[pIndex].progressPercent : 0, percent),
+    scrollPosition: pIndex >= 0 ? allProgress[pIndex].scrollPosition : 0,
+    lastReadAt: now
+  };
+
+  if (pIndex >= 0) {
+    allProgress[pIndex] = progressRecord;
+  } else {
+    allProgress.push(progressRecord);
+  }
+  safeSetJSON(STORAGE_KEYS.READING_PROGRESS, allProgress);
+
+  return nowRead;
+}
+
+// ---------------- LOCKED CHAPTERS & ACCESS CODES ----------------
+
+export function isChapterUnlocked(
+  userId: string,
+  chapterId: string
+): boolean {
+  const allUnlocked = safeGetJSON<string[]>('jsb_unlocked_chapters', []);
+  const key = `${userId || 'guest_user'}::${chapterId}`;
+  return allUnlocked.includes(key) || allUnlocked.includes(chapterId);
+}
+
+export function unlockChapterWithCode(
+  userId: string,
+  chapterId: string,
+  enteredCode: string,
+  actualCode?: string
+): { success: boolean; message: string } {
+  const normalizedEntered = (enteredCode || '').trim().toLowerCase();
+  const normalizedActual = (actualCode || '').trim().toLowerCase();
+
+  // If no specific code was set by author, default to universal VIP code 'ACCESS' or 'EXPOSED' or match
+  const isValid = normalizedActual 
+    ? normalizedEntered === normalizedActual 
+    : (normalizedEntered === 'exposed' || normalizedEntered === 'access' || normalizedEntered.length >= 4);
+
+  if (!isValid) {
+    return { success: false, message: 'Incorrect access code. Please check with the author.' };
+  }
+
+  const allUnlocked = safeGetJSON<string[]>('jsb_unlocked_chapters', []);
+  const key = `${userId || 'guest_user'}::${chapterId}`;
+  if (!allUnlocked.includes(key)) {
+    allUnlocked.push(key);
+    safeSetJSON('jsb_unlocked_chapters', allUnlocked);
+  }
+
+  return { success: true, message: 'Chapter unlocked successfully!' };
+}
+
 export function saveReadingProgress(
   userId: string,
   book: Book,

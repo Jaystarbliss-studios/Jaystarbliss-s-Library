@@ -66,15 +66,15 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {/* Header & Close */}
           <div className="flex items-center justify-between border-b border-white/10 pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#181926] border border-white/10 flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-zinc-100" />
+              <div className="w-10 h-10 rounded-xl bg-[#181926] border border-white/10 flex items-center justify-center overflow-hidden p-0.5 shadow-sm">
+                <img src="/library-x.png" alt="Library X" className="w-full h-full object-contain rounded-lg" />
               </div>
               <div>
                 <span className="font-sans-clean font-bold tracking-wide text-zinc-100 text-base block">
-                  Jaystarbliss
+                  Library X
                 </span>
-                <span className="text-[10px] tracking-widest text-zinc-400 uppercase font-mono-space block">
-                  Library
+                <span className="text-[10px] tracking-widest text-teal-400 uppercase font-mono-space block font-semibold">
+                  Jaystarbliss Studios
                 </span>
               </div>
             </div>

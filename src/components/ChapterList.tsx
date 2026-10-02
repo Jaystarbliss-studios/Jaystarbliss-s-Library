@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Chapter, ReadingProgress } from '../types';
-import { BookOpen, Clock, Calendar, CheckCircle2, Lock, ArrowUpDown, Search } from 'lucide-react';
+import { Clock, Calendar, CheckCircle2, Lock, ArrowUpDown, Search } from 'lucide-react';
+import { isChapterUnlocked } from '../lib/storage';
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -9,6 +10,7 @@ interface ChapterListProps {
   onSelectChapter: (chapterNumber: number) => void;
   isAdmin?: boolean;
   isAuthenticated?: boolean;
+  userId?: string;
 }
 
 export const ChapterList: React.FC<ChapterListProps> = ({
@@ -17,7 +19,8 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   progress,
   onSelectChapter,
   isAdmin = false,
-  isAuthenticated = false
+  isAuthenticated = false,
+  userId = 'guest_user'
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(true);
@@ -57,7 +60,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           </span>
           <button
             onClick={() => setSortAscending(!sortAscending)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl text-xs font-mono-space tracking-wider transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-xl text-xs font-mono-space tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             <span>{sortAscending ? '1 → END' : 'END → 1'}</span>
@@ -71,49 +74,67 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           const isPublished = chapter.status === 'published';
           const isScheduled = chapter.status === 'scheduled';
           const isDraft = chapter.status === 'draft';
-          const isLockedForAnonymous = isPublished && chapter.chapterNumber >= 11 && !isAuthenticated && !isAdmin;
+          
+          const isLockedByAuthor = chapter.isLocked !== undefined 
+            ? chapter.isLocked 
+            : (chapter.chapterNumber >= 11);
+          
+          const isUnlocked = isChapterUnlocked(userId, chapter.id);
+          const isLocked = isPublished && isLockedByAuthor && !isAuthenticated && !isAdmin && !isUnlocked;
+          
           const isCurrentReading = progress?.lastChapterNumber === chapter.chapterNumber;
           const isCompleted = progress && progress.lastChapterNumber > chapter.chapterNumber;
-          const isClickable = (isPublished && !isLockedForAnonymous) || isAdmin;
+          const isClickable = isPublished || isAdmin;
 
           return (
             <div
               key={chapter.id}
               onClick={() => isClickable && onSelectChapter(chapter.chapterNumber)}
-              className={`group p-4 sm:p-5 rounded-2xl flex items-center justify-between gap-4 transition-all border border-zinc-800/60 shadow-sm ${
+              className={`group p-4 sm:p-5 rounded-2xl flex items-center justify-between gap-4 transition-all border shadow-sm ${
                 isClickable
                   ? 'cursor-pointer hover:bg-zinc-800/40 hover:border-zinc-700/80'
-                  : 'opacity-60 cursor-not-allowed bg-zinc-950/40'
-              } ${isCurrentReading ? 'bg-zinc-800/60 border-amber-500/50 shadow-md ring-1 ring-amber-500/20' : 'bg-[#121217]/70'}`}
+                  : 'opacity-60 cursor-not-allowed bg-zinc-950/40 border-zinc-800/60'
+              } ${
+                isCurrentReading 
+                  ? 'bg-zinc-800/60 border-teal-500/50 shadow-md ring-1 ring-teal-500/20' 
+                  : 'bg-[#121217]/70 border-zinc-800/60'
+              }`}
             >
-              <div className={`flex items-start gap-4 sm:gap-6 min-w-0`}>
+              <div className="flex items-start gap-4 sm:gap-6 min-w-0 flex-1">
                 
                 {/* Chapter Number Badge */}
-                <div className="shrink-0 text-center w-14 sm:w-16">
+                <div className="shrink-0 text-center w-12 sm:w-14">
                   <span className="block font-cinzel text-base sm:text-lg font-bold text-zinc-300 group-hover:text-white transition-colors">
                     {chapter.chapterNumber < 10 ? `0${chapter.chapterNumber}` : chapter.chapterNumber}
                   </span>
                   <span className="block font-mono-space text-[9px] text-zinc-500 tracking-widest uppercase">
-                    CHAPTER
+                    CH.
                   </span>
                 </div>
 
                 {/* Chapter Title & Subtitle */}
-                <div className="space-y-1 min-w-0">
+                <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-cinzel text-sm sm:text-base font-bold text-zinc-100 group-hover:text-white transition-colors truncate">
                       {chapter.title}
                     </h4>
 
-                    {isPublished && (
+                    {isLocked && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-300 text-[10px] font-mono-space rounded-full border border-amber-500/30">
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>LOCKED</span>
+                      </span>
+                    )}
+
+                    {isPublished && !isLocked && (
                       <span className="px-2 py-0.5 bg-zinc-800/90 text-zinc-400 text-[10px] font-mono-space rounded-full">
-                        {chapter.readingTimeMinutes} min read
+                        {chapter.readingTimeMinutes || 4} min read
                       </span>
                     )}
 
                     {isScheduled && (
                       <span className="px-2.5 py-0.5 bg-amber-950/80 text-amber-300 text-[10px] font-mono-space tracking-wider border border-amber-800/60 rounded-full">
-                        SCHEDULED FOR {chapter.scheduledFor ? new Date(chapter.scheduledFor).toLocaleDateString() : 'SOON'}
+                        SCHEDULED
                       </span>
                     )}
 
@@ -124,7 +145,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     )}
 
                     {isCurrentReading && (
-                      <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-mono-space tracking-wider border border-amber-500/40 rounded-full font-bold">
+                      <span className="px-2.5 py-0.5 bg-teal-500/20 text-teal-300 text-[10px] font-mono-space tracking-wider border border-teal-500/40 rounded-full font-bold">
                         CURRENT
                       </span>
                     )}
@@ -145,36 +166,23 @@ export const ChapterList: React.FC<ChapterListProps> = ({
                     ) : chapter.scheduledFor ? (
                       <span className="flex items-center gap-1.5 text-amber-400">
                         <Clock className="w-3 h-3" />
-                        <span>Releasing {new Date(chapter.scheduledFor).toLocaleString()}</span>
+                        <span>Releasing {new Date(chapter.scheduledFor).toLocaleDateString()}</span>
                       </span>
                     ) : null}
 
                     <span>•</span>
-                    <span>{chapter.wordCount} words</span>
+                    <span>{chapter.wordCount || 750} words</span>
                   </div>
                 </div>
               </div>
 
-              {isLockedForAnonymous && (
-                <div
-                  className="absolute inset-0 z-10 flex items-center justify-center px-4"
-                  style={{ background: 'linear-gradient(90deg, rgba(13,13,18,0.80), rgba(13,13,18,0.60), rgba(13,13,18,0.90))' }}
-                  onClick={() => onSelectChapter(chapter.chapterNumber)}
-                >
-                  <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-black/50 px-4 py-2.5 backdrop-blur-sm">
-                    <Lock className="w-4 h-4 text-amber-300 shrink-0" />
-                    <div className="text-left">
-                      <div className="text-[11px] font-mono-space font-bold tracking-wider text-zinc-100">CHAPTER LOCKED</div>
-                      <div className="text-[10px] font-sans text-zinc-400">Sign in with Google to continue reading</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Status / Action Glyph */}
               <div className="shrink-0">
-                {isLockedForAnonymous ? (
-                  <span title="Sign in required" className="p-2 block"><Lock className="w-5 h-5 text-amber-300" /></span>
+                {isLocked ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-mono-space">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>PREVIEW</span>
+                  </div>
                 ) : isPublished ? (
                   isCompleted ? (
                     <span title="Completed" className="p-2 block">
